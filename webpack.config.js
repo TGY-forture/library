@@ -3,6 +3,7 @@ const { VueLoaderPlugin } = require("vue-loader");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
+const fs = require('fs')
 
 module.exports = (env, arg) => {
   return {
@@ -43,7 +44,7 @@ module.exports = (env, arg) => {
           test: /\.(png)|(jpg)|(jpeg)|(gif)$/,
           type: 'asset/resource',
           generator: {
-            filename: 'img/[hash]'
+            filename: 'img/[name]'
           }
         },
         {
@@ -120,11 +121,15 @@ module.exports = (env, arg) => {
       hot: true,
       host: '10.136.21.90',
       port: 8080,
+      https: true,
       stats: "minimal",
       contentBase: './public',
       overlay: true,
       disableHostCheck: true,
-      clientLogLevel: 'silent'
+      clientLogLevel: 'silent',
+      historyApiFallback: {
+        index: '/redirect.html'
+      }
     }
   }
 };
