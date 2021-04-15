@@ -1,5 +1,5 @@
 <template>
-  <div class="u-form">
+  <div class="u-form" ref="ufind">
     <a-form ref="logform" :model="formfields" :rules="rules">
       <a-form-item ref="user" :autoLink="false" name="user" hasFeedback>
         <p>
@@ -75,24 +75,42 @@
     </a-form>
     <footer class="footer">
       <p>
-        <span>问题帮助</span><i class="custom-icon custom-icon-question"></i>
+        <span @click="getPass">找回密码</span
+        ><i class="custom-icon custom-icon-question"></i>
       </p>
       <p>
         <span @click="toSign">前往注册</span
         ><i class="custom-icon custom-icon-Right"></i>
       </p>
     </footer>
+    <a-modal
+      :visible="visible"
+      title="验证"
+      :getContainer="() => $refs.ufind"
+      @cancel="visible = false"
+      :closable="false"
+      cancelText="取消"
+      okText="确定"
+      :confirm-loading="confirmLoading"
+    >
+      <template v-slot:footer>
+        <a-button type="dashed">发送验证码</a-button>
+        <a-button type="primary">提交</a-button>
+      </template>
+      <Help />
+    </a-modal>
   </div>
 </template>
 
 <script>
 import { defineComponent, reactive, ref } from "vue";
 import { draw } from "@/assets/js/vertifycode.js";
-import { Notify } from "vant";
 import { message } from "ant-design-vue";
+import Help from "../help/help.vue";
 
 export default defineComponent({
   name: "Log",
+  components: { Help },
   setup() {
     const formfields = reactive({
       user: "172210303316",
@@ -100,6 +118,7 @@ export default defineComponent({
       vertifycode: "",
     });
     const loading = ref(false);
+    const confirmLoading = ref(false);
     const rules = {
       user: [
         {
@@ -133,10 +152,17 @@ export default defineComponent({
         },
       ],
     };
+    let visible = ref(false);
+    const getPass = () => {
+      visible.value = true;
+    };
     return {
       formfields,
       rules,
       loading,
+      visible,
+      getPass,
+      confirmLoading,
     };
   },
   data() {
@@ -158,11 +184,11 @@ export default defineComponent({
         .then(
           (values) => {
             if (values.vertifycode !== this.handvertify.join("")) {
-              Notify("验证码错误");
+              message.error("验证码错误");
             } else {
               message.success("yesok");
               setTimeout(() => {
-                location.href = " http://10.136.21.90:8080/redirect.html";
+                location.href = " https://10.136.21.90:8080/redirect.html";
               }, 2000);
             }
           },
