@@ -3,21 +3,22 @@
     <a-modal
       v-model:visible="modalShow"
       title="扫码"
+      :centered="true"
       :getContainer="() => $refs.scan"
       :closable="false"
       :footer="null"
       :forceRender="true"
       @cancel="hide"
     >
-      <!-- <canvas ref="canvas"></canvas> -->
-      <video ref="video"></video>
+      <p>{{ code }}</p>
+      <canvas ref="canvas"></canvas>
     </a-modal>
   </div>
 </template>
 
 <script>
 import { defineComponent, ref } from "vue";
-import { scanCode } from "@/assets/js/scan.js";
+import jsQR from "jsqr";
 
 export default defineComponent({
   name: "Qrcode",
@@ -33,28 +34,60 @@ export default defineComponent({
   },
   data() {
     return {
-      tracks: null,
+      tracks: undefined,
+      video: null,
+      frame: undefined,
+      code: "",
     };
   },
   watch: {
     visible: function (nval) {
       this.modalShow = nval;
       if (nval === true) {
-        navigator.mediaDevices
-          .getUserMedia({ video: { facingMode: "environment" } })
-          .then((stream) => {
-            this.tracks = stream.getTracks();
-            this.$refs.video.srcObject = stream;
-            this.$refs.video.play();
-          })
-          .catch((e) => alert(e));
+        this.gerCamera();
       }
     },
   },
   methods: {
     hide() {
       this.$emit("hideModal");
-      console.log(this.tracks[0].stop());
+      this.tracks[0].stop();
+      cancelAnimationFrame(this.frame);
+    },
+    gerCamera() {
+      this.video = this.video ? this.video : document.createElement("video");
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: "environment" } })
+        .then((stream) => {
+          this.tracks = stream.getTracks();
+          this.video.srcObject = stream;
+          this.video.play();
+          this.drawPicture();
+        })
+        .catch((e) => alert(e));
+    },
+    drawPicture() {
+      if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
+        let height = this.video.videoHeight;
+        let width = this.video.videoWidth;
+        let render = this.$refs.canvas.getContext("2d");
+        this.$refs.canvas.height = height;
+        this.$refs.canvas.width = width;
+        render.drawImage(this.video, 0, 0, width, height);
+        let imageData = render.getImageData(0, 0, width, height);
+        let code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+        if (code) {
+          this.code = code.data;
+          setTimeout(() => {
+            this.hide();
+          }, 2000);
+        } else {
+          this.code = "no data";
+        }
+      }
+      this.frame = requestAnimationFrame(this.drawPicture);
     },
   },
 });
@@ -62,19 +95,8 @@ export default defineComponent({
 
 <style lang="less">
 .u-scancode {
-  video {
+  canvas {
     width: 100%;
-    // height: 200px;
-  }
-  #output {
-    margin-top: 20px;
-    background: #eee;
-    padding: 10px;
-    padding-bottom: 0;
-    div {
-      padding-bottom: 10px;
-      word-wrap: break-word;
-    }
   }
 }
 </style>
