@@ -32,7 +32,7 @@
           </template>
         </a-input-password>
       </a-form-item>
-      <a-form-item label="验证方式">
+      <a-form-item label="验证方式" name="method">
         <a-radio-group v-model:value="formFields.method">
           <a-radio value="email">邮箱验证</a-radio>
           <a-radio value="message">短信验证</a-radio>
@@ -40,18 +40,17 @@
       </a-form-item>
       <a-form-item :wrapperCol="{ span: 18, offset: 6 }" name="mcode">
         <a-input
-          placeholder="请输入邮箱"
+          :placeholder="placeholder"
           v-model:value="formFields.mcode"
         ></a-input>
       </a-form-item>
     </a-form>
-    <a-button class="u-btn" shape="round" type="primary" @click="handle"
-      >提交</a-button
-    >
+    <a-button class="u-btn" shape="round" type="primary" @click="handle">
+      提交
+    </a-button>
     <p class="foot-back">
       <i class="custom-icon custom-icon-Larrow"></i>
       <span @click="backLog">返回登录</span>
-      <span class="addprofile">已注册,完善信息</span>
     </p>
     <a-modal
       v-model:visible="show"
@@ -64,7 +63,7 @@
       width="280px"
       okText="确定"
       cancelText="取消"
-      @ok="editProfile"
+      @ok="initProfile"
     >
       <a-input v-model:value="sendcode"></a-input>
     </a-modal>
@@ -80,9 +79,6 @@
       :destroyOnClose="true"
     >
       <a-form ref="inform" :model="profile" v-bind="col">
-        <a-form-item label="学号">
-          <a-input v-model:value="profile.scode"></a-input>
-        </a-form-item>
         <a-form-item label="昵称">
           <a-input v-model:value="profile.nickname"></a-input>
         </a-form-item>
@@ -97,28 +93,34 @@
         </a-form-item>
         <a-form-item label="学院">
           <a-select v-model:value="profile.faculty">
-            <a-select-option value="lucy">tgy</a-select-option>
-            <a-select-option value="luc">45</a-select-option>
-            <a-select-option value="lu">wes</a-select-option>
-            <a-select-option value="1">tgy</a-select-option>
-            <a-select-option value="2">45</a-select-option>
-            <a-select-option value="3">wes</a-select-option>
+            <a-select-option value="tgy">tgy</a-select-option>
+            <a-select-option value="45">45</a-select-option>
+            <a-select-option value="wes">wes</a-select-option>
+            <a-select-option value="tgy">tgy</a-select-option>
+            <a-select-option value="45">45</a-select-option>
+            <a-select-option value="wes">wes</a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="联系方式">
-          <a-input v-model:value="profile.concat"></a-input>
+        <a-form-item label="邮箱">
+          <a-input v-model:value="profile.email"></a-input>
+        </a-form-item>
+        <a-form-item label="电话">
+          <a-input v-model:value="profile.phone"></a-input>
         </a-form-item>
       </a-form>
       <div style="text-align: center">
-        <a-button type="primary" shape="round">保存</a-button>
+        <a-button type="primary" shape="round" @click="saveProfile">
+          保存
+        </a-button>
       </div>
     </a-drawer>
   </div>
 </template>
 
 <script>
-import { defineComponent, reactive } from "vue";
+import { defineComponent, reactive, computed } from "vue";
 import { message } from "ant-design-vue";
+import md5 from 'blueimp-md5';
 
 export default defineComponent({
   name: "Sign",
@@ -132,20 +134,24 @@ export default defineComponent({
       },
     };
     const profile = reactive({
-      scode: "172210303316",
       nickname: "hahhhhh",
       gender: "woman",
-      age: 12,
+      age: 18,
       faculty: "lu",
-      concat: "18361812729",
+      phone: "18361812729",
+      email: '1453836790@qq.com'
     });
     const formFields = reactive({
       studycode: "172210303316",
       pass: "12345678",
       repass: "12345678",
       method: "message",
-      mcode: "2",
+      mcode: "17383032731",
     });
+    const placeholder = computed(() => {
+      let p = '请输入';
+      return formFields.method === 'message' ? p + '电话号码' : p + '邮箱'
+    })
     const validRepass = async (rule, value) => {
       if (value !== formFields.pass) {
         return Promise.reject("密码不相等");
@@ -153,35 +159,47 @@ export default defineComponent({
         return Promise.resolve();
       }
     };
-    const rules = {
-      studycode: [
-        { required: true, message: "请输入学号", trigger: "blur" },
-        {
-          pattern: /^\d{12}$/,
-          message: "学号不符合要求",
-          trigger: ["blur", "change"],
-        },
-      ],
-      pass: [
-        { required: true, message: "请输入密码", trigger: "blur" },
-        { pattern: /^.{8,}$/, message: "密码格式不正确", trigger: "blur" },
-      ],
-      repass: [
-        { required: true, message: "请确认密码", trigger: "blur" },
-        { validator: validRepass, trigger: "blur" },
-      ],
-      mcode: [{ required: true, message: "请输入信息", trigger: "blur" }],
-    };
+    let typeEmail = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/g;
+    let typePhone = /^1[3-9]\d{9}$/g;
+
+    const rules = computed(() => {
+      return {
+        studycode: [
+          { required: true, message: "请输入学号", trigger: "blur" },
+          {
+            pattern: /^\d{12}$/,
+            message: "学号不符合要求",
+            trigger: ["blur", "change"],
+          },
+        ],
+        pass: [
+          { required: true, message: "请输入密码", trigger: "blur" },
+          { pattern: /^.{8,}$/, message: "密码格式不正确", trigger: "blur" },
+        ],
+        repass: [
+          { required: true, message: "请确认密码", trigger: "blur" },
+          { validator: validRepass, trigger: "blur" },
+        ],
+        mcode: [
+          { required: true, message: "请输入信息", trigger: "blur" },
+          {
+            pattern: formFields.method === 'message' ? typePhone : typeEmail,
+            message: formFields.method === 'message' ? '号码格式错误' : '邮箱格式错误',
+            trigger: "blur"
+          }
+        ]
+      }
+    });
     return {
       col,
       formFields,
       rules,
       profile,
+      placeholder
     };
   },
   data() {
     return {
-      way: "email",
       loadingkey: "load",
       show: false,
       infoload: false,
@@ -193,36 +211,103 @@ export default defineComponent({
     backLog() {
       this.$emit("showComponent");
     },
-    handle() {
-      this.$refs.signform
-        .validateFields()
-        .then((values) => {
-          message.loading({
-            content: "正在发送验证码...",
-            key: this.loadingkey,
-            duration: 0,
-          });
-          setTimeout(() => {
+    handle() { //提交处理函数
+      this.$refs.signform.validateFields().then(async (values) => {//验证码已发送
+        message.loading({
+          content: "正在检查...",
+          key: this.loadingkey,
+          duration: 0,
+        });
+        let { data: isSign } = await this.$axios.post('/sign', values);
+        if (isSign === 0) { //如果是刚注册,发验证码
+          let { data: isValid } = await this.$axios.get(
+            `/verify?type=${values.method}&user=${values.mcode}&id=${values.studycode}`
+          );
+          if (isValid === 1) {
             message.success({
               content: "验证码发送成功",
               key: this.loadingkey,
-              duration: 1,
+              duration: 2,
             });
             this.show = true;
-          }, 2000);
-        })
-        .catch((e) => {
-          console.log(e);
-        });
+          } else if (isValid === -1) {
+            message.error({
+              content: "验证码发送失败",
+              key: this.loadingkey,
+              duration: 2,
+            });
+          } else {
+            message.warning({
+              content: "验证码已存在",
+              key: this.loadingkey,
+              duration: 2,
+            });
+            this.show = true;
+          }
+        } else if (isSign === 1) {
+          message.success({
+            content: "OK",
+            key: this.loadingkey,
+            duration: 1,
+          });
+          this.drawershow = true;
+        } else {
+          message.warning({
+            content: "该账号已注册",
+            key: this.loadingkey,
+            duration: 2,
+          });
+        }
+      }).catch((e) => {
+        console.error(e)
+      });
     },
-    editProfile() {
+    initProfile() { //第一次初始化用户信息(用户名,密码,注册状态,联系方式)
       this.infoload = true;
-      setTimeout(() => {
-        this.drawershow = true;
-        this.show = false;
+      // 如果验证码未过期,则cookie中存在用户字段，会随请求发送
+      this.$axios.post('/check', {
+        studycode: this.formFields.studycode,
+        pass: md5(this.formFields.pass),
+        type: this.formFields.method,
+        mess: this.formFields.mcode,
+        code: this.sendcode
+      }).then(({ data }) => {
+        if (data === 1) {
+          this.drawershow = true;
+          this.show = false;
+        } else {
+          message.error({
+            content: '验证失败',
+            duration: 1
+          })
+        }
+      }).catch(e => {
+        console.error(e)
+      }).finally(() => {
         this.infoload = false;
-      }, 1000);
+      })
     },
+    saveProfile() {//保存完善信息
+      this.$axios.put('/sign', {
+        ...this.profile,
+        studyCode: this.formFields.studycode
+      }).then(({ data }) => {
+        if (data === 1) {
+          message.success({
+            content: '保存成功',
+            duration: 1
+          });
+          this.drawershow = false;
+        } else {
+          message.error({
+            content: '保存失败',
+            duration: 1
+          })
+        }
+      }).catch(e => {
+        console.error(e)
+      })
+    }
   },
 });
 </script>
@@ -273,7 +358,11 @@ export default defineComponent({
   .mount-drawer {
     .ant-drawer-top.ant-drawer-open .ant-drawer-content-wrapper {
       box-shadow: none;
+      .ant-drawer-wrapper-body::-webkit-scrollbar {
+        display: none;
+      }
     }
+
     .ant-drawer-content {
       border-radius: 0 0 20px 20px;
       .ant-row {
@@ -289,10 +378,6 @@ export default defineComponent({
     display: flex;
     align-items: center;
     color: #3398eb;
-    .addprofile {
-      margin-left: auto;
-      color: rgb(83, 79, 79);
-    }
   }
   .u-btn {
     position: relative;
