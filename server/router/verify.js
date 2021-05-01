@@ -7,9 +7,9 @@ const codeMap = new Map(); //存储验证码
 clear();
 
 const router = new Router();
-
+//获取验证码功能
 router.get('/verify', async (ctx) => {
-  const scode = ctx.cookies.get('studyCode');
+  const scode = ctx.cookies.get('studycode');
   if (!!scode) { //如果cookie中存在student字段，则验证码未过期
     ctx.body = 0;  //0代表已经申请过验证码
   } else {//否则申请验证码
@@ -28,9 +28,15 @@ router.get('/verify', async (ctx) => {
     }
     if (res === 1) { //验证码发送成功
       codeMap.set(ctx.query.id, [code, Date.now()]);
-      ctx.cookies.set('studyCode', ctx.query.id, {
+      ctx.cookies.set('studycode', ctx.query.id, {
         maxAge: 30000,
-        httpOnly: true,
+        httpOnly: false,
+        sameSite: true,
+        secure: true
+      });
+      ctx.cookies.set('cert', 'true', {
+        maxAge: 30000,
+        httpOnly: false,
         sameSite: true,
         secure: true
       })
@@ -39,9 +45,13 @@ router.get('/verify', async (ctx) => {
   }
   console.log(codeMap);
 });
-
+//检验验证码是否正确
 router.post('/check', async (ctx) => {
-  let scode = ctx.cookies.get('studyCode'); //获取cookie
+  let scode = ctx.cookies.get('studycode'); //获取cookie --- 验证码存在标志
+  if (scode == undefined) { //如果验证码不存在或过期,验证失败
+    ctx.body = -1;
+    return;
+  }
   let verifyCode = codeMap.get(scode)[0];
   let body = ctx.request.body;
   if (body.code === verifyCode) {
@@ -49,8 +59,8 @@ router.post('/check', async (ctx) => {
     ctx.body = await new Promise((resolve, reject) => {
       let cm = body.type === 'message' ? 'phone' : 'email';
       conn.query(
-        `insert into userinfo (student,pass,${cm},status) values (?,?,?,?)`,
-        [body.studycode, body.pass, body.mcode, '0'],
+        `insert into userinfo (student,pass,${cm},status,github) values (?,?,?,?,?)`,
+        [body.studycode, body.pass, body.mcode, '0', '0'],
         (error) => {
           conn.end();
           if (error) {
@@ -66,6 +76,9 @@ router.post('/check', async (ctx) => {
   }
 })
 
+/**
+ * @description: 生成验证码
+ */
 const genCode = () => {
   let code = '';
   for (let i = 0; i < 4; i++) {
@@ -74,6 +87,9 @@ const genCode = () => {
   return code
 }
 
+/**
+ * @description: 定时清除过期的验证码
+ */
 function clear() { //每隔五分钟检查验证码，清除无用的验证码信息
   let timer = setTimeout(() => {
     clearTimeout(timer);
