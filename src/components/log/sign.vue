@@ -50,8 +50,13 @@
     </a-button>
     <p class="foot-back">
       <i class="custom-icon custom-icon-Larrow"></i>
-      <span @click="backLog">返回登录</span>
+      <span @click="$emit('showComponent')">返回登录</span>
     </p>
+    <Info
+      :height="600"
+      :drawershow="drawershow"
+      @closedrawer="drawershow = false"
+    />
     <a-modal
       v-model:visible="show"
       title="请输入验证码"
@@ -67,63 +72,18 @@
     >
       <a-input v-model:value="sendcode"></a-input>
     </a-modal>
-    <!-- 用于挂载drawer组件....其实是不想调整样式了,(笑脸.jpg) -->
-    <div ref="mountdrawer" class="mount-drawer"></div>
-    <a-drawer
-      v-model:visible="drawershow"
-      title="个人信息"
-      :closable="false"
-      :getContainer="() => $refs.mountdrawer"
-      placement="top"
-      :height="500"
-      :destroyOnClose="true"
-    >
-      <a-form ref="inform" :model="profile" v-bind="col">
-        <a-form-item label="昵称">
-          <a-input v-model:value="profile.nickname"></a-input>
-        </a-form-item>
-        <a-form-item label="性别">
-          <a-radio-group name="radioGroup" v-model:value="profile.gender">
-            <a-radio value="man">男</a-radio>
-            <a-radio value="woman">女</a-radio>
-          </a-radio-group>
-        </a-form-item>
-        <a-form-item label="年龄">
-          <a-input-number v-model:value="profile.age" :min="15" :max="30" />
-        </a-form-item>
-        <a-form-item label="学院">
-          <a-select v-model:value="profile.faculty">
-            <a-select-option value="tgy">tgy</a-select-option>
-            <a-select-option value="45">45</a-select-option>
-            <a-select-option value="wes">wes</a-select-option>
-            <a-select-option value="tgy">tgy</a-select-option>
-            <a-select-option value="45">45</a-select-option>
-            <a-select-option value="wes">wes</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="邮箱">
-          <a-input v-model:value="profile.email"></a-input>
-        </a-form-item>
-        <a-form-item label="电话">
-          <a-input v-model:value="profile.phone"></a-input>
-        </a-form-item>
-      </a-form>
-      <div style="text-align: center">
-        <a-button type="primary" shape="round" @click="saveProfile">
-          保存
-        </a-button>
-      </div>
-    </a-drawer>
   </div>
 </template>
 
 <script>
-import { defineComponent, reactive, computed } from "vue";
-import { message } from "ant-design-vue";
+import { defineComponent, reactive, computed, ref } from "vue";
+import { message, Modal } from "ant-design-vue";
 import md5 from 'blueimp-md5';
+import Info from '../util/drawer.vue'
 
 export default defineComponent({
   name: "Sign",
+  components: { Info },
   setup() {
     const col = {
       labelCol: {
@@ -133,14 +93,6 @@ export default defineComponent({
         span: 18,
       },
     };
-    const profile = reactive({
-      nickname: "hahhhhh",
-      gender: "woman",
-      age: 18,
-      faculty: "lu",
-      phone: "18361812729",
-      email: '1453836790@qq.com'
-    });
     const formFields = reactive({
       studycode: "172210303316",
       pass: "12345678",
@@ -190,11 +142,12 @@ export default defineComponent({
         ]
       }
     });
+    let drawershow = ref(false);
     return {
+      drawershow,
       col,
       formFields,
       rules,
-      profile,
       placeholder
     };
   },
@@ -204,13 +157,9 @@ export default defineComponent({
       show: false,
       infoload: false,
       sendcode: "",
-      drawershow: false,
     };
   },
   methods: {
-    backLog() {
-      this.$emit("showComponent");
-    },
     handle() { //提交处理函数
       this.$refs.signform.validateFields().then(async (values) => {//验证码已发送
         message.loading({
@@ -251,12 +200,19 @@ export default defineComponent({
             duration: 1,
           });
           this.drawershow = true;
-        } else {
+        } else if (isSign === 2) {
           message.warning({
             content: "该账号已注册",
             key: this.loadingkey,
             duration: 2,
           });
+        } else {
+          message.destroy();
+          Modal.info({
+            title: '提示',
+            content: '该账号已通过Github注册，请点击Github图标进行登录！',
+            okText: '知道了'
+          })
         }
       }).catch((e) => {
         console.error(e)
@@ -287,27 +243,6 @@ export default defineComponent({
         this.infoload = false;
       })
     },
-    saveProfile() {//保存完善信息
-      this.$axios.put('/sign', {
-        ...this.profile,
-        studyCode: this.formFields.studycode
-      }).then(({ data }) => {
-        if (data === 1) {
-          message.success({
-            content: '保存成功',
-            duration: 1
-          });
-          this.drawershow = false;
-        } else {
-          message.error({
-            content: '保存失败',
-            duration: 1
-          })
-        }
-      }).catch(e => {
-        console.error(e)
-      })
-    }
   },
 });
 </script>
@@ -353,24 +288,6 @@ export default defineComponent({
       width: 150px;
       letter-spacing: 9px;
       text-align: center;
-    }
-  }
-  .mount-drawer {
-    .ant-drawer-top.ant-drawer-open .ant-drawer-content-wrapper {
-      box-shadow: none;
-      .ant-drawer-wrapper-body::-webkit-scrollbar {
-        display: none;
-      }
-    }
-
-    .ant-drawer-content {
-      border-radius: 0 0 20px 20px;
-      .ant-row {
-        align-items: center;
-        .ant-form-item-label {
-          padding: 0;
-        }
-      }
     }
   }
   .foot-back {
