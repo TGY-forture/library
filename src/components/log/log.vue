@@ -83,20 +83,25 @@
         ><i class="custom-icon custom-icon-Right"></i>
       </p>
     </footer>
+    <a-button size="large" @click="test">test</a-button>
+    <p>{{ content }}</p>
+    <div class="github-link">
+      <i class="custom-icon custom-icon-github" @click="githubAuthorize"></i>
+    </div>
+    <p class="copyright">
+      <i class="custom-icon custom-icon-copyright"></i>
+      <span>CopyRight TGY 2021</span>
+    </p>
+    <Info :height="550" :drawershow="drawershow" @closedrawer="close"></Info>
     <a-modal
       :visible="visible"
       title="验证"
       :getContainer="() => $refs.ufind"
       @cancel="visible = false"
       :closable="false"
-      cancelText="取消"
-      okText="确定"
-      :confirm-loading="confirmLoading"
+      :footer="null"
+      :destroyOnClose="true"
     >
-      <template v-slot:footer>
-        <a-button type="dashed">发送验证码</a-button>
-        <a-button type="primary">提交</a-button>
-      </template>
       <Help />
     </a-modal>
   </div>
@@ -107,18 +112,21 @@ import { defineComponent, reactive, ref } from "vue";
 import { draw } from "@/assets/js/vertifycode.js";
 import { message } from "ant-design-vue";
 import Help from "../help/help.vue";
+import md5 from "blueimp-md5";
+import Info from '../util/drawer.vue'
 
 export default defineComponent({
   name: "Log",
-  components: { Help },
+  components: { Help, Info },
   setup() {
     const formfields = reactive({
       user: "172210303316",
-      pass: "tgy12345.",
+      pass: "12345678",
       vertifycode: "",
     });
     const loading = ref(false);
-    const confirmLoading = ref(false);
+    let drawershow = ref(false);
+    let visible = ref(true);
     const rules = {
       user: [
         {
@@ -152,56 +160,112 @@ export default defineComponent({
         },
       ],
     };
-    let visible = ref(false);
     const getPass = () => {
       visible.value = true;
     };
     return {
+      drawershow,
       formfields,
       rules,
       loading,
       visible,
       getPass,
-      confirmLoading,
     };
   },
   data() {
     return {
       handvertify: [],
+      content: ''
     };
   },
   mounted() {
-    draw(this.handvertify, this.$refs.vertify);
+    draw(this.handvertify, this.$refs.vertify); //验证码绘制函数
+    const search = window.location.search.slice(1);
+    if (search == '') return;
+    const status = search.split('=')[1];
+    if (status === '-1') {
+      message.error('认证失败')
+    } else if (status === '0') {
+      message.loading({
+        key: 'check',
+        content: '正在检查...',
+        duration: 0
+      })
+      setTimeout(() => {
+        message.destroy();
+        this.drawershow = true;
+      }, 1500);
+    } else {
+      window.location.href = 'https://10.136.21.90:8080/redirect.html'
+    }
   },
   methods: {
-    genNewCode() {
-      draw(this.handvertify, this.$refs.vertify);
-    },
-    log() {
-      this.loading = true;
-      this.$refs.logform
-        .validateFields()
-        .then(
-          (values) => {
-            if (values.vertifycode !== this.handvertify.join("")) {
-              message.error("验证码错误");
-            } else {
-              message.success("yesok");
-              setTimeout(() => {
-                location.href = " https://10.136.21.90:8080/redirect.html";
-              }, 2000);
-            }
-          },
-          () => {}
-        )
-        .finally(() => {
-          setTimeout(() => {
-            this.loading = false;
-          }, 2000);
-        });
+    githubAuthorize() {
+      let clientId = "";
+      location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}`;
     },
     toSign() {
       this.$emit("showComponent");
+    },
+    async test() {
+      ; ({ data: this.content } = await this.$axios.get('/test'));
+    },
+    genNewCode() {
+      draw(this.handvertify, this.$refs.vertify);
+    },
+    close(studycode) {
+      this.drawershow = false;
+      message.loading({
+        content: '自动登录中...',
+        key: 'info',
+        duration: 0
+      })
+      this.$axios.post('/token', { user: studycode }).then(() => {
+        message.success({
+          content: '登录成功',
+          key: 'info',
+          duration: 1
+        })
+      }).catch(() => {
+        message.error({
+          content: '登录失败',
+          key: 'info',
+          duration: 1
+        })
+      })
+    },
+    log() {
+      this.$refs.logform.validateFields().then(
+        async (values) => {
+          if (values.vertifycode !== this.handvertify.join("")) {
+            message.error("验证码错误");
+          } else {
+            this.loading = true;
+            const { data } = await this.$axios.post('/log', {
+              user: values.user,
+              pass: md5(values.pass)
+            });
+            if (data === -1) {
+              message.error('错误');
+            } else if (data === 0) {
+              message.warning('请注册完善信息');
+            } else if (data === 1) {
+              await this.$axios.post('/token', { user: values.user });
+              message.success('登录成功');
+              //跳转首页
+              //......
+            } else if (data === 2) {
+              message.info('该用户已登录')
+            } else {
+              message.error('用户名或密码错误');
+            }
+          }
+        }
+      ).catch(e => {
+        console.error(e)
+      }).finally(() => {
+        this.loading = false;
+      });
     },
   },
 });
@@ -269,6 +333,25 @@ export default defineComponent({
           vertical-align: middle;
         }
       }
+    }
+  }
+  .github-link {
+    margin-top: 80px;
+    text-align: center;
+    .custom-icon-github {
+      font-size: 40px;
+    }
+  }
+  .copyright {
+    margin-top: 20px;
+    text-align: center;
+    span {
+      vertical-align: middle;
+      color: grey;
+      font-size: 12px;
+    }
+    i {
+      vertical-align: middle;
     }
   }
 }
