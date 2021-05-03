@@ -1,26 +1,33 @@
 <template>
   <div class="u-profile" ref="uprofile">
     <div class="top">
-      <img :src="avatar" alt="logo" />
+      <img :src="user.avatar" alt="logo" />
       <div>
         <p>
-          <span>哭泣De火彩盒13120</span>
+          <span>{{ user.nickname }}</span>
           <span>
-            <i class="custom-icon custom-icon-starmarkhighligh"></i>23
+            <i class="custom-icon custom-icon-starmarkhighligh"></i>
+            {{ user.star }}
           </span>
         </p>
         <p>
-          <i class="custom-icon custom-icon-woman"></i>
-          <span class="hide">选择隐藏信息</span>
+          <i
+            class="custom-icon"
+            :class="
+              user.gender === 'man' ? 'custom-icon-man' : 'custom-icon-woman'
+            "
+          ></i>
         </p>
       </div>
     </div>
     <div style="margin: 10px 0">
       <a-upload
         v-model:file-list="filelist"
+        :headers="upheaders"
         name="avatar"
         accept=".png,.jpeg,.jpg"
-        action="https://www.mocky.io/v2/5cc8019d300000980a055e76"
+        action="https://10.136.21.90:5000/avatar"
+        method="post"
         @change="handleChange"
       >
         <a-button>
@@ -35,42 +42,49 @@
           <i class="custom-icon custom-icon-xiugainicheng"></i>
           <span>昵称</span>
         </a-col>
-        <a-col>哭泣De火彩盒De火彩盒哭泣De火彩盒</a-col>
+        <a-col>{{ user.nickname }}</a-col>
       </a-row>
       <a-row>
         <a-col :span="10" :offset="2">
           <i class="custom-icon custom-icon-Studentid"></i>
           <span>学号</span>
         </a-col>
-        <a-col>172210303316</a-col>
+        <a-col>{{ user.student }}</a-col>
       </a-row>
       <a-row>
         <a-col :span="10" :offset="2">
           <i class="custom-icon custom-icon-gender"></i>
           <span>性别</span>
         </a-col>
-        <a-col>nan</a-col>
+        <a-col>{{ user.gender === "man" ? "男" : "女" }}</a-col>
       </a-row>
       <a-row>
         <a-col :span="10" :offset="2">
           <i class="custom-icon custom-icon-age1"></i>
           <span>年龄</span>
         </a-col>
-        <a-col>8</a-col>
+        <a-col>{{ user.age }}</a-col>
       </a-row>
       <a-row>
         <a-col :span="10" :offset="2">
           <i class="custom-icon custom-icon-faculty"></i>
           <span>学院</span>
         </a-col>
-        <a-col>电子信息学院</a-col>
+        <a-col>{{ user.faculty }}</a-col>
       </a-row>
       <a-row>
         <a-col :span="10" :offset="2">
           <i class="custom-icon custom-icon-concat"></i>
-          <span>联系方式</span>
+          <span>电话</span>
         </a-col>
-        <a-col>18361812729</a-col>
+        <a-col>{{ user.phone }}</a-col>
+      </a-row>
+      <a-row>
+        <a-col :span="10" :offset="2">
+          <i class="custom-icon custom-icon-Email"></i>
+          <span>邮箱</span>
+        </a-col>
+        <a-col>{{ user.email }}</a-col>
       </a-row>
     </div>
     <div class="edit-tool">
@@ -92,7 +106,7 @@
     >
       <template v-slot:title>
         <span>修改信息</span>
-        <a-button type="primary" @click="visible = false">
+        <a-button type="primary" @click="handleInfo">
           <template v-slot:icon>
             <i class="custom-icon custom-icon-ok"></i>
           </template>
@@ -105,7 +119,7 @@
         :wrapperCol="{ span: 19 }"
       >
         <a-form-item label="学号">
-          <a-input v-model:value="formfields.scode"></a-input>
+          <a-input v-model:value="formfields.student" disabled></a-input>
         </a-form-item>
         <a-form-item label="昵称">
           <a-input v-model:value="formfields.nickname"></a-input>
@@ -130,8 +144,11 @@
             </a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="联系方式">
-          <a-input v-model:value="formfields.concat"></a-input>
+        <a-form-item label="电话">
+          <a-input v-model:value="formfields.phone"></a-input>
+        </a-form-item>
+        <a-form-item label="邮箱">
+          <a-input v-model:value="formfields.email" disabled></a-input>
         </a-form-item>
       </a-form>
     </a-drawer>
@@ -139,57 +156,83 @@
 </template>
 
 <script>
-import { defineComponent, ref, reactive } from "vue";
+import { defineComponent, ref, reactive, computed } from "vue";
+import { mapState, useStore } from 'vuex'
 import { UploadOutlined } from "@ant-design/icons-vue";
 import { message } from "ant-design-vue";
-
-function getBase64(img, callback) {
-  const reader = new FileReader();
-  reader.addEventListener("load", () => callback(reader.result));
-  reader.readAsDataURL(img);
-}
 
 export default defineComponent({
   name: "Profile",
   components: { UploadOutlined },
   setup() {
-    let avatar = ref(require("@/assets/img/avatar.jpeg"));
-    const handleChange = (info) => {
-      if (info.file.status === "done") {
-        getBase64(info.file.originFileObj, (base64Url) => {
-          avatar.value = base64Url;
-        });
-        message.success(`${info.file.name}上传成功`);
-      } else if (info.file.status === "error") {
-        message.error(`${info.file.name} 上传失败`);
-      }
-    };
+    let filelist = ref([]);
+    let visible = ref(false);
     const formfields = reactive({
-      scode: "172210303316",
-      nickname: "汇划费会废话",
-      gender: "man",
-      age: 22,
-      faculty: "2",
-      concat: "http://tgy-forture.com",
+      student: '',
+      nickname: '',
+      gender: 'man',
+      age: 18,
+      faculty: '1',
+      phone: '',
+      email: '',
     });
-    const filelist = ref([]);
-    const visible = ref(false);
+    const store = useStore();
     const edit = () => {
+      for (let k in formfields) {
+        formfields[k] = store.state.user[k]
+      }
       visible.value = true;
     };
     const onClose = () => {
       visible.value = false;
     };
+    const handleChange = (info) => {
+      let res = info.file.response;
+      filelist.value = [...info.fileList.slice(-1)];
+      if (info.file.status === 'done' && res !== -1) {
+        store.dispatch('getUserInfo');
+        message.success(`上传成功`);
+      }
+      if (info.file.status === 'error') {
+        message.error(`上传失败`);
+      }
+    };
+    const handleInfo = async () => {
+      const data = await store.dispatch('updateUserInfo', formfields);
+      if (data === 1) {
+        message.success('更新成功');
+        visible.value = false;
+      } else {
+        message.error('更新失败');
+      }
+    };
     return {
-      filelist,
-      handleChange,
-      avatar,
-      visible,
-      onClose,
       edit,
+      onClose,
+      visible,
+      filelist,
       formfields,
+      handleInfo,
+      handleChange,
     };
   },
+  data() {
+    return {
+      upheaders: {},
+    }
+  },
+  computed: {
+    ...mapState(['user'])
+  },
+  created() {
+    let accessToken = localStorage.getItem('accessToken');
+    let refreshToken = localStorage.getItem('refreshToken');
+    this.upheaders = {
+      Authorization: 'Bearer ' + accessToken,
+      RefreshToken: refreshToken
+    }
+  },
+  methods: {}
 });
 </script>
 
@@ -225,6 +268,7 @@ export default defineComponent({
     .ant-row {
       flex-flow: row nowrap;
       align-items: center;
+      margin-bottom: 16px;
       .ant-col {
         overflow: hidden;
         white-space: nowrap;
