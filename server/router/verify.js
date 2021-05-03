@@ -30,7 +30,7 @@ router.get('/verify', async (ctx) => {
       codeMap.set(ctx.query.id, [code, Date.now()]);
       ctx.cookies.set('studycode', ctx.query.id, {
         maxAge: 30000,
-        httpOnly: false,
+        httpOnly: true,
         sameSite: true,
         secure: true
       });
@@ -71,6 +71,48 @@ router.post('/check', async (ctx) => {
         }
       );
     }).then(r => r).catch(() => -1)
+  } else {
+    ctx.body = -1;
+  }
+})
+//更新密码时检验验证码
+router.post('/cert', async (ctx) => {
+  const scode = ctx.cookies.get('studycode');
+  const cert = codeMap.get(scode)[0];
+  const { studycode, email, newpass, certcode } = ctx.request.body;
+  if (cert === certcode) { //验证成功
+    let conn = createConn();
+    ctx.body = await new Promise((resolve, reject) => {
+      conn.query(`select email from userinfo where student=?`, studycode, (error, result) => {
+        if (error) {
+          reject(-1);
+        }
+        if (result.length > 0) {
+          if (result[0].email === email) {
+            resolve()
+          } else {
+            reject(-1)
+          }
+        } else {
+          reject(-1)
+        }
+      })
+    }).then(() => {
+      return new Promise((resolve, reject) => {
+        conn.query(`update userinfo set pass=? where student=?`, [newpass, studycode],
+          (error) => {
+            conn.end();
+            if (error) {
+              reject(-1);
+            } else {
+              resolve(1);
+            }
+          })
+      })
+    }).catch(e => {
+      conn.end();
+      return e;
+    });
   } else {
     ctx.body = -1;
   }
