@@ -133,4 +133,25 @@ router.post('/avatar', async (ctx) => {
   })
 })
 
+//更新用户信息
+router.post('/user', async (ctx) => {
+  let student = ctx.jwt.user;
+  const body = ctx.request.body;
+  let conn = createConn();
+  ctx.body = await new Promise((resolve, reject) => {
+    let sql = 'update userinfo set student=?,nickname=?,gender=?,age=?,faculty=?,phone=?,email=? where student=?';
+    let value = [student, body.nickname, body.gender, body.age, body.faculty, body.phone, body.email, student];
+    conn.query(sql, value, (error, result) => {
+      if (error) {
+        reject(-1);
+      }
+      if (result.affectedRows > 0) {
+        resolve(1);
+      } else {
+        reject(-1);
+      }
+    })
+  })
+})
+
 module.exports = router;
