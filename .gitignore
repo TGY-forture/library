@@ -1,3 +1,9 @@
 node_modules/
 package-lock.json
 dist/
+src/assets/img/
+public/san_domain_com.crt
+public/san_domain_com.key
+server/img/
+server/util/email.js
+server/util/sms.js
