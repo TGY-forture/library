@@ -83,8 +83,6 @@
         ><i class="custom-icon custom-icon-Right"></i>
       </p>
     </footer>
-    <a-button size="large" @click="test">test</a-button>
-    <p>{{ content }}</p>
     <div class="github-link">
       <i class="custom-icon custom-icon-github" @click="githubAuthorize"></i>
     </div>
@@ -92,7 +90,12 @@
       <i class="custom-icon custom-icon-copyright"></i>
       <span>CopyRight TGY 2021</span>
     </p>
-    <Info :height="550" :drawershow="drawershow" @closedrawer="close"></Info>
+    <Info
+      :height="550"
+      :drawershow="drawershow"
+      :github="1"
+      @closedrawer="close"
+    ></Info>
     <a-modal
       :visible="visible"
       title="验证"
@@ -102,7 +105,7 @@
       :footer="null"
       :destroyOnClose="true"
     >
-      <Help />
+      <Help @shutmodal="visible = false" />
     </a-modal>
   </div>
 </template>
@@ -126,7 +129,7 @@ export default defineComponent({
     });
     const loading = ref(false);
     let drawershow = ref(false);
-    let visible = ref(true);
+    let visible = ref(false);
     const rules = {
       user: [
         {
@@ -183,6 +186,7 @@ export default defineComponent({
     const search = window.location.search.slice(1);
     if (search == '') return;
     const status = search.split('=')[1];
+    window.history.pushState('', '', 'https://10.136.21.90:8080/'); //去掉search参数
     if (status === '-1') {
       message.error('认证失败')
     } else if (status === '0') {
@@ -201,14 +205,11 @@ export default defineComponent({
   },
   methods: {
     githubAuthorize() {
-      let clientId = "";
+      let clientId = "8844a87df44b4fd63eb6";
       location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}`;
     },
     toSign() {
       this.$emit("showComponent");
-    },
-    async test() {
-      ; ({ data: this.content } = await this.$axios.get('/test'));
     },
     genNewCode() {
       draw(this.handvertify, this.$refs.vertify);
@@ -253,11 +254,14 @@ export default defineComponent({
               await this.$axios.post('/token', { user: values.user });
               message.success('登录成功');
               //跳转首页
-              //......
+              setTimeout(() => {
+                message.destroy();
+                window.location.href = 'https://10.136.21.90:8080/redirect.html'
+              }, 2000);
             } else if (data === 2) {
-              message.info('该用户已登录')
-            } else {
               message.error('用户名或密码错误');
+            } else {
+              message.info('该用户已登录')
             }
           }
         }
