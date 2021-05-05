@@ -7,13 +7,6 @@
     <Log v-if="showlog" @showComponent="showlog = false" />
     <Sign v-else @showComponent="showlog = true" />
   </transition>
-  <div class="github-link">
-    <i class="custom-icon custom-icon-github"></i>
-    <p>
-      <i class="custom-icon custom-icon-copyright"></i>
-      <span>CopyRight TGY 2021</span>
-    </p>
-  </div>
 </template>
 
 <script>
@@ -63,24 +56,6 @@ export default defineComponent({
     font-size: 20px;
     vertical-align: middle;
     margin: 10px;
-  }
-}
-.github-link {
-  text-align: center;
-  .custom-icon-github {
-    font-size: 40px;
-  }
-  p {
-    margin-top: 40px;
-    i {
-      vertical-align: middle;
-      margin-right: 5px;
-    }
-    span {
-      vertical-align: middle;
-      color: grey;
-      font-size: 12px;
-    }
   }
 }
 </style>
