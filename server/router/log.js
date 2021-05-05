@@ -4,7 +4,8 @@ const qs = require('querystring');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const router = new Router();
-const createConn = require('../util/mysql.js');
+const {createConn} = require('../util/mysql.js');
+const { clentSecret } = require('../util/variable.js')
 
 const indexHtml = fs.readFileSync('./dist/index.html', 'utf-8');
 let secret = fs.readFileSync('../public/san_domain_com.key', 'utf-8');
@@ -169,7 +170,7 @@ router.get('/github', async (ctx) => {
   if (code) { //github同意授权
     let data = {
       client_id: '8844a87df44b4fd63eb6',
-      client_secret: 'xxxx',
+      client_secret: clentSecret,
       code
     };
     //请求token
@@ -186,7 +187,6 @@ router.get('/github', async (ctx) => {
       return await new Promise((resolve, reject) => {
         conn.query(`select github,nickname,status from userinfo where nickname=?`, login, (error, result) => {
           if (error) {
-            console.log('select err');
             reject(-1);
           }
           if (result.length > 0) {
@@ -206,7 +206,6 @@ router.get('/github', async (ctx) => {
               (error) => {
                 conn.end();
                 if (error) {
-                  console.log('insert err');
                   reject(-1);
                 }
                 resolve(0);
