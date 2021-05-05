@@ -131,7 +131,7 @@ module.exports = (env, arg) => {
     ],
     devtool: arg.mode === 'development' ? 'eval-cheap-source-map' : false,
     devServer: {
-      index: 'index.html',
+      index: 'redirect.html',
       open: 'Chrome',
       hot: true,
       host: '10.136.21.90',
@@ -146,7 +146,7 @@ module.exports = (env, arg) => {
       disableHostCheck: true,
       clientLogLevel: 'silent',
       historyApiFallback: {
-        index: '/index.html'
+        index: '/redirect.html'
       }
     }
   }
