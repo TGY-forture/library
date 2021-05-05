@@ -56,7 +56,7 @@
           <div class="seat-item">
             <i
               class="custom-icon custom-icon-Armchair"
-              v-for="index in 100"
+              v-for="index in 400"
               :key="index"
               :style="{ color: genColor() }"
             ></i>
@@ -103,7 +103,7 @@
           type="dashed"
           size="large"
           :loading="loading"
-          @click="appointment"
+          @touchstart.passive="appointment"
         >
           预约
         </a-button>
@@ -265,6 +265,11 @@ export default defineComponent({
         flex-wrap: wrap;
         justify-content: space-between;
         align-items: center;
+        height: 200px;
+        overflow-y: scroll;
+        &::-webkit-scrollbar {
+          display: none;
+        }
         .custom-icon {
           font-size: 16px;
           margin: 5px;
