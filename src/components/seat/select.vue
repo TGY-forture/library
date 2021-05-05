@@ -14,39 +14,47 @@
         <a-input-number
           v-model:value="formfields.floor"
           :min="1"
-          :max="6"
+          :max="5"
+          @change="changeArea"
         ></a-input-number>
       </a-form-item>
       <a-form-item label="区域" v-if="!checked">
-        <a-select v-bind:value="formfields.area">
-          <a-select-option value="g">g</a-select-option>
-          <a-select-option value="2">2</a-select-option>
-          <a-select-option value="s">s</a-select-option>
-          <a-select-option value="a">a</a-select-option>
+        <a-select v-model:value="formfields.area">
+          <a-select-option value="0">请选择</a-select-option>
+          <a-select-option v-for="area in areas" :key="area" :value="area">
+            {{ seatArea[area] }}
+          </a-select-option>
         </a-select>
       </a-form-item>
       <a-form-item label="日期" v-if="!select">
         <a-date-picker
           :inputReadOnly="true"
+          :disabledDate="disabledDate"
           v-model:value="formfields.date"
         ></a-date-picker>
       </a-form-item>
       <a-form-item v-if="!checked" label="座位号" :wrapperCol="{ span: 10 }">
         <a-input
-          v-model:value="formfields.seatNum"
-          placeholder="可选值1-123"
+          v-model:value="formfields.seq"
+          :placeholder="seqOptions"
         ></a-input>
       </a-form-item>
       <a-form-item label="开始时间">
         <a-time-picker
           v-model:value="formfields.startTime"
+          format="HH:mm"
           :inputReadOnly="true"
+          :disabledHours="disabledHours"
+          :disabledMinutes="disabledMinutes"
         ></a-time-picker>
       </a-form-item>
       <a-form-item label="结束时间">
         <a-time-picker
           v-model:value="formfields.endTime"
+          format="HH:mm"
           :inputReadOnly="true"
+          :disabledHours="disabledHours"
+          :disabledMinutes="disabledMinutes"
         ></a-time-picker>
       </a-form-item>
     </a-form>
@@ -113,9 +121,11 @@
 </template>
 
 <script>
-import { defineComponent, reactive, ref } from "vue";
+import { defineComponent, reactive, ref, watch } from "vue";
 import moment from "moment";
 import { notification } from "ant-design-vue";
+import { mapGetters } from 'vuex';
+import { seatArea } from '@/assets/js/areaname.js';
 
 export default defineComponent({
   name: "Select",
@@ -129,36 +139,99 @@ export default defineComponent({
         span: 19,
       },
     };
-    const formfields = reactive({
+    let formfields = reactive({
       floor: 1,
-      area: "a",
-      date: moment("2022-07-23", "YY-MM-DD"),
-      startTime: moment("08:00:00", "HH:mm:ss"),
-      endTime: moment("09:00:00", "HH:mm:ss"),
-      seatNum: 3,
+      area: "0",
+      date: moment(moment().add(1, 'days'), "YY-MM-DD"),
+      startTime: moment(moment(), "HH:mm"),
+      endTime: moment(moment(), "HH:mm"),
+      seq: '',
     });
+    let select = ref(false);
+    watch(select, () => {
+      formfields.startTime = moment(moment(), "HH:mm");
+      formfields.endTime = moment(moment(), "HH:mm");
+    })
+    const disabledDate = (current) => {
+      return !!current && (current < moment().endOf('day') || current > moment().add(2, 'days'));
+    }
+    //选择小时的时候区分今日与明日之后
+    const disabledHours = () => {
+      let hour = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+      let nowhour = moment().hour();
+      if (select.value) {//若是今日预约
+        return nowhour < 7 ? [0, 1, 2, 3, 4, 5, 23] : hour.slice(0, nowhour).concat(23);
+      } else {//否则就是明日及以后
+        return [0, 1, 2, 3, 4, 5, 23];
+      }
+    }
+    //选择分钟的时候区分今日与明日之后
+    const disabledMinutes = (selecthour) => {
+      let minute = [];
+      for (let i = 0; i < 60; i++) {
+        minute[i] = i;
+      }
+      let nowhour = moment().hour(); //当前小时
+      let nowmin = moment().minute(); //当前分钟
+      if (select.value) {//今日预约
+        if (selecthour === nowhour) {//如果选择的小时等于当前小时,则需要禁用部分分钟
+          if (nowhour === 6) {//只能选择6:30后的
+            return nowmin < 30 ? minute.slice(0, 30) : minute.slice(0, nowmin + 1);
+          }
+          if (nowhour === 22) {//只能选择22:30前的
+            return nowmin < 30 ? minute.slice(0, nowmin + 1).concat(minute.slice(31)) : minute;
+          }
+          return minute.slice(0, nowmin + 1);//其他情况
+        } else { //当选择的时间大于当前小时
+          if (selecthour === 22) {//只能选择22:30前的
+            return minute.slice(31);
+          }
+          return [];//其他情况可以全选
+        }
+      } else { //明日...
+        if (selecthour === 6) {//只能选择6:30后的
+          return minute.slice(0, 30);
+        }
+        if (selecthour === 22) {//只能选择22:30前的
+          return minute.slice(31);
+        }
+        return [];//其他情况都可以选
+      }
+    }
     return {
+      select,
       formfields,
       col,
       activeKey,
+      disabledDate,
+      disabledHours,
+      disabledMinutes
     };
   },
   data() {
     return {
-      select: true,
+      seatArea,
       checked: false,
       loading: false,
     };
   },
+  computed: {
+    ...mapGetters(['seatData']),
+    areas() {
+      let floor = this.seatData[this.formfields.floor - 1];
+      return floor ? Object.keys(floor) : [];
+    },
+    seqOptions() {
+      // let end = this.seatData[this.formfields.floor - 1] && [this.formfields.area].length;
+      return '可选值1-';
+    }
+  },
   methods: {
     appointment() {
       this.loading = true;
+      console.log(this.formfields);
       setTimeout(() => {
         this.loading = false;
-        notification["success"]({
-          message: "预约成功!",
-          description: "可在预约中心查看详情。",
-        });
       }, 1000);
     },
     genColor() {
@@ -166,6 +239,9 @@ export default defineComponent({
         parseInt(Math.random() * 3)
       ];
     },
+    changeArea(floor) {
+      this.formfields.area = Object.keys(this.seatData[floor - 1])[0];
+    }
   },
 });
 </script>
