@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const createConn = require('../util/mysql.js');
+const { createConn } = require('../util/mysql.js');
 const router = new Router();
 
 let secret = fs.readFileSync('../public/san_domain_com.key', 'utf-8');
