@@ -15,13 +15,36 @@ let store = createStore({
         student: '',
         github: '0',
         phone: ''
-      }
+      },
+      seat: [],
+      record: new Array(4000).fill(0).map(() => {
+        return {}
+      })
     }
   },
-  getters: {},
+  getters: {
+    seatData({ seat }) {//对得到的座位信息处理，方便筛选
+      let result = [{}, {}, {}, {}, {}];//五层的信息
+      seat.forEach((obj) => {
+        let areaitem = result[+obj.floor - 1];
+        if (areaitem[obj.area] == undefined) {
+          areaitem[obj.area] = [];
+        }
+        const { seq, id, status, user } = obj;
+        areaitem[obj.area].push({ seq, id, status, user });
+      });
+      return result;
+    }
+  },
   mutations: {
     initUserInfo(state, data) {
       state.user = data;
+    },
+    initSeatInfo(state, data) {
+      state.seat = data;
+    },
+    initBookRecord(state, data) {
+      state.record = data;
     }
   },
   actions: {
@@ -33,9 +56,26 @@ let store = createStore({
       const { data } = await axios.post('/user', args);
       if (data === 1) {
         await dispatch('getUserInfo');
-        return Promise.resolve(1)
+        return 1
       } else {
-        return Promise.reject(-1);
+        return -1;
+      }
+    },
+    async getSeatInfo({ commit }) {
+      const { data } = await axios.get('/seatinfo');
+      if (data === -1) {
+        return -1;
+      } else {
+        commit('initSeatInfo', data);
+        return 1;
+      }
+    },
+    async getBookRecord({ commit }) {
+      const { data } = await axios.get('/book');
+      if (data === -1) {
+        return -1;
+      } else {
+        commit('initBookRecord', data)
       }
     }
   },
