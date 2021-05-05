@@ -7,7 +7,8 @@ const koaBody = require('koa-body');
 const log = require('./router/log.js');
 const pageroute = require('./router/pageroute.js');
 const verify = require('./router/verify.js');
-const api = require('./router/api.js')
+const api = require('./router/api.js');
+const seat = require('./router/seat.js');
 
 let options = {
   key: fs.readFileSync('../public/san_domain_com.key'),
@@ -31,5 +32,6 @@ app.use(async (ctx, next) => {
   }
 });
 app.use(pageroute.routes()).use(log.routes()).use(verify.routes()).use(api.routes());
+app.use(seat.routes())
 
 https.createServer(options, app.callback()).listen(5000, '10.136.21.90')
