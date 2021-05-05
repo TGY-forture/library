@@ -1,9 +1,53 @@
 <template>
-  <div class="home">
+  <div class="home" ref="uhome">
     <header class="nav">
-      <a-input-search placeholder="搜索座位或用户"></a-input-search>
-      <i class="custom-icon custom-icon-plus"></i>
-      <img src="@/assets/img/1232381748.jpeg" alt="avatar" />
+      <a-input-search
+        placeholder="搜索用户昵称或学号"
+        :loading="loading"
+        @search="search"
+      ></a-input-search>
+      <a-popover
+        trigger="click"
+        placement="leftTop"
+        :getPopupContainer="() => $refs.uhome"
+      >
+        <template #content>
+          <ul class="u-pop-cntent">
+            <li>
+              <i class="custom-icon custom-icon-scan"></i>
+              <span>扫描二维码</span>
+            </li>
+            <li>
+              <i class="custom-icon custom-icon-share"></i>
+              <span>分享本网站</span>
+            </li>
+          </ul>
+        </template>
+        <i class="custom-icon custom-icon-plus"></i>
+      </a-popover>
+      <a-popover
+        trigger="click"
+        placement="bottomRight"
+        :getPopupContainer="() => $refs.uhome"
+      >
+        <template #content>
+          <ul class="head-content">
+            <li>
+              <i class="custom-icon custom-icon-developer"></i>
+              <span>关于作者</span>
+            </li>
+            <li>
+              <i class="custom-icon custom-icon-log-out"></i>
+              <span>注销登录</span>
+            </li>
+            <li>
+              <i class="custom-icon custom-icon-question"></i>
+              <span>问题帮助</span>
+            </li>
+          </ul>
+        </template>
+        <img src="@/assets/img/1232381748.jpeg" alt="avatar" />
+      </a-popover>
     </header>
     <div class="menu">
       <nav class="func-select" @click="to">
@@ -16,23 +60,66 @@
         <span ref="slider"></span>
       </div>
     </div>
-    <Select />
+    <router-view></router-view>
   </div>
 </template>
 
 <script>
 import { defineComponent } from "vue";
-import Select from "@/components/seat/select.vue";
+import { useStore } from 'vuex';
+
 export default defineComponent({
   name: "Index",
-  components: {
-    Select,
+  setup() {
+    const store = useStore();
+    store.dispatch('getUserInfo');
+  },
+  data() {
+    return {
+      loading: false,
+    };
+  },
+  created() { },
+  mounted() {
+    let path = window.location.pathname;
+    let num;
+    switch (path) {
+      case '/seat': num = 0; break;
+      case '/appoint': num = 1; break;
+      case '/message': num = 2; break;
+      case '/profile': num = 3; break;
+      default: num = 0; break;
+    }
+    this.$refs.slider.style.setProperty("--offset", num);
   },
   methods: {
     to(e) {
       let num = e.target.dataset.index;
       if (num == undefined) return;
       this.$refs.slider.style.setProperty("--offset", num);
+      switch (num) {
+        case "0":
+          this.$router.push("/seat");
+          break;
+        case "1":
+          this.$router.push("/appoint");
+          break;
+        case "2":
+          this.$router.push("/message");
+          break;
+        case "3":
+          this.$router.push("/profile");
+          break;
+        default:
+          break;
+      }
+    },
+    search() {
+      this.loading = true;
+      setTimeout(() => {
+        this.$router.push("/search");
+        this.loading = false;
+      }, 1000);
     },
   },
 });
@@ -43,8 +130,6 @@ export default defineComponent({
   .nav {
     display: flex;
     align-items: center;
-    // position: sticky;
-    // top: 10px;
     .custom-icon-plus {
       font-size: 24px;
       margin-right: 10px;
@@ -82,6 +167,33 @@ export default defineComponent({
         background-color: black;
         border-radius: 2px;
         left: calc(((100% - 48 * 4px) / 3 + 48px) * var(--offset));
+      }
+    }
+  }
+  .ant-popover-inner-content {
+    .u-pop-cntent {
+      margin-bottom: 0;
+      span {
+        font-size: 12px;
+        margin-left: 4px;
+      }
+      .custom-icon {
+        vertical-align: middle;
+      }
+    }
+    .head-content {
+      margin-bottom: 0;
+      li {
+        margin: 5px 0;
+        .custom-icon {
+          font-size: 18px;
+          margin-right: 5px;
+          vertical-align: middle;
+        }
+        span {
+          font-size: 12px;
+          vertical-align: middle;
+        }
       }
     }
   }
