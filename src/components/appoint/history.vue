@@ -48,6 +48,9 @@ export default defineComponent({
     border-radius: 5px;
     border: 1px solid rgba(216, 216, 216, 0.623);
     overflow-y: scroll;
+    &::-webkit-scrollbar {
+      display: none;
+    }
     li {
       position: relative;
       margin: 10px 0;
