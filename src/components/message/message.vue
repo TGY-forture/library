@@ -6,11 +6,11 @@
       </template>
     </a-empty>
     <ul class="mess" v-else>
-      <li v-for="i in 1" :key="i">
+      <li v-for="i in 2" :key="i">
         <img src="../../assets/img/begin.png" alt="logo" @click="show" />
         <div @click="toChat">
           <p>爱吃蘑菇的小男孩127胡风很大把v8哈哈</p>
-          <p>今天你拉屎了吗？</p>
+          <p>今天你拉屎了吗?</p>
         </div>
         <i class="custom-icon custom-icon-garbage"></i>
       </li>
