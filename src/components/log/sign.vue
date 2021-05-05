@@ -55,6 +55,7 @@
     <Info
       :height="600"
       :drawershow="drawershow"
+      :github="0"
       @closedrawer="drawershow = false"
     />
     <a-modal
