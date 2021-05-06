@@ -154,4 +154,12 @@ router.post('/user', async (ctx) => {
   })
 })
 
+/**
+ * 预定座位系列请求接口
+ */
+router.post('/bookseat', async (ctx) => {
+  let user = ctx.jwt.user;
+  ctx.body = ctx.request.body;
+})
+
 module.exports = router;
