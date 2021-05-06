@@ -20,7 +20,6 @@
       </a-form-item>
       <a-form-item label="区域" v-if="!checked">
         <a-select v-model:value="formfields.area">
-          <a-select-option value="0">请选择</a-select-option>
           <a-select-option v-for="area in areas" :key="area" :value="area">
             {{ seatArea[area] }}
           </a-select-option>
@@ -36,7 +35,8 @@
       <a-form-item v-if="!checked" label="座位号" :wrapperCol="{ span: 10 }">
         <a-input
           v-model:value="formfields.seq"
-          :placeholder="seqOptions"
+          type="number"
+          :placeholder="'可选值1-' + seqOptions"
         ></a-input>
       </a-form-item>
       <a-form-item label="开始时间">
@@ -59,14 +59,19 @@
       </a-form-item>
     </a-form>
     <div class="card" v-if="checked">
-      <a-tabs v-model:activeKey="activeKey">
-        <a-tab-pane v-for="i in 6" :key="i" :tab="`自然科学区${i}`">
-          <div class="seat-item">
+      <a-tabs v-model:activeKey="formfields.activeArea">
+        <a-tab-pane
+          v-for="(items, key) in seatData[formfields.floor - 1]"
+          :key="key"
+          :tab="seatArea[key]"
+        >
+          <div class="seat-item" @click="changeSeq">
             <i
               class="custom-icon custom-icon-Armchair"
-              v-for="index in 400"
-              :key="index"
-              :style="{ color: genColor() }"
+              v-for="seat in items"
+              :data-index="seat.seq"
+              :key="seat.seq"
+              :style="{ color: genColor(seat.status) }"
             ></i>
           </div>
         </a-tab-pane>
@@ -86,24 +91,29 @@
           <template #title>空闲</template>
           <p class="dot"></p>
         </a-tooltip>
-        <span>座位ID:12345678</span>
+        <span>座位ID:{{ selectedSeat.id }}</span>
         <i class="custom-icon custom-icon-qrcode"></i>
       </div>
       <div class="seat-body">
         <a-row>
           <a-col :span="7">座位状态:</a-col>
-          <a-col class="use-status"><span>使用中</span><span></span></a-col>
+          <a-col class="use-status">
+            <span>{{ selectedSeat.status }}</span>
+            <span
+              :style="{ backgroundColor: genColor(selectedSeat.rawstatus) }"
+            ></span>
+          </a-col>
         </a-row>
         <a-row>
           <a-col :span="7">使用者昵称:</a-col>
-          <a-col class="nickname">哭泣De火彩盒</a-col>
+          <a-col class="nickname">{{ selectedSeat.user }}</a-col>
         </a-row>
         <a-row>
           <a-col :span="7">已预约时间:</a-col>
-          <a-col class="already"
-            ><span>点此查看</span
-            ><i class="custom-icon custom-icon-Magnifiercontrol"></i
-          ></a-col>
+          <a-col class="already">
+            <span>点此查看</span>
+            <i class="custom-icon custom-icon-Magnifiercontrol"></i>
+          </a-col>
         </a-row>
       </div>
       <div class="seat-foot">
@@ -126,11 +136,12 @@ import moment from "moment";
 import { notification } from "ant-design-vue";
 import { mapGetters } from 'vuex';
 import { seatArea } from '@/assets/js/areaname.js';
+import { createSocket } from '@/assets/js/websocket.js'
+createSocket();
 
 export default defineComponent({
   name: "Select",
   setup() {
-    const activeKey = ref(1);
     const col = {
       labelCol: {
         span: 5,
@@ -141,17 +152,18 @@ export default defineComponent({
     };
     let formfields = reactive({
       floor: 1,
-      area: "0",
-      date: moment(moment().add(1, 'days'), "YY-MM-DD"),
+      area: "",
+      activeArea: "",
+      date: moment(moment().add(1, 'days'), "YYYY-MM-DD"),
       startTime: moment(moment(), "HH:mm"),
       endTime: moment(moment(), "HH:mm"),
-      seq: '',
+      seq: '1',
     });
     let select = ref(false);
     watch(select, () => {
       formfields.startTime = moment(moment(), "HH:mm");
       formfields.endTime = moment(moment(), "HH:mm");
-    })
+    });
     const disabledDate = (current) => {
       return !!current && (current < moment().endOf('day') || current > moment().add(2, 'days'));
     }
@@ -202,7 +214,6 @@ export default defineComponent({
       select,
       formfields,
       col,
-      activeKey,
       disabledDate,
       disabledHours,
       disabledMinutes
@@ -218,29 +229,103 @@ export default defineComponent({
   computed: {
     ...mapGetters(['seatData']),
     areas() {
-      let floor = this.seatData[this.formfields.floor - 1];
-      return floor ? Object.keys(floor) : [];
+      let area = Object.keys(this.seatData[this.formfields.floor - 1]);
+      if (area.length > 0) {
+        this.formfields.activeArea = area[0];
+      }
+      return area;
     },
     seqOptions() {
-      // let end = this.seatData[this.formfields.floor - 1] && [this.formfields.area].length;
-      return '可选值1-';
+      let end = this.seatData[this.formfields.floor - 1];
+      let names = Object.keys(end);
+      //开发下热更新问题,记得打包时删除
+      if (names.length > 0) {
+        let s = this.checked ? 'activeArea' : 'area';
+        if (!end[this.formfields[s]]) {
+          this.formfields[s] = names[0];
+          end = end[names[0]].length;
+        } else {
+          end = end[this.formfields[s]].length;
+        }
+        return end;
+      }
+      //
+      return '';
+    },
+    selectedSeat() {
+      let floor = this.seatData[this.formfields.floor - 1];
+      let pos = this.checked ? floor[this.formfields.activeArea] : floor[this.formfields.area];
+      if (!pos) {
+        return {
+          id: 'loading...',
+          status: 'loading...',
+          user: 'loading...',
+          rawstatus: 0
+        }
+      }
+      let seq = this.formfields.seq;
+      //座位号不合法时重置
+      if (seq === '0' || seq === '' || !/\d+/g.test(seq)) {
+        seq = 1;
+      } else if (+seq > this.seqOptions) {
+        seq = this.seqOptions;
+      }
+      const item = pos[seq - 1];
+      return {
+        id: item.id,
+        user: item.user == null ? '无' : item.user,
+        status: item.status === 0 ? '空闲中' : (item.status === 1 ? '有预约' : '使用中'),
+        rawstatus: item.status
+      };
+    }
+  },
+  watch: {
+    'areas': function (nval) {
+      this.formfields.area = nval[0];
     }
   },
   methods: {
-    appointment() {
+    async appointment() {
+      let handledata = {};
+      handledata.date = this.select ? moment().format('YYYY-MM-DD') : this.formfields.date.format('YYYY-MM-DD');
+      handledata.area = this.checked ? this.formfields.activeArea : this.formfields.area;
+      let { startTime, endTime, seq, floor } = this.formfields;
+      if (endTime.valueOf() - startTime.valueOf() < 18e+5) { //间隔小于30min,返回
+        return;
+      }
+      if (+seq > this.seqOptions) { //座位号越界调整
+        this.formfields.seq = this.seqOptions + '';
+        seq = this.seqOptions;
+      } else if (seq === '') {
+        this.formfields.seq = '1';
+        seq = 1;
+      } else {
+        seq = +seq;
+      }
+      let id = this.seatData[floor - 1][handledata.area][seq - 1].id;
+      Object.assign(handledata, {
+        startTime: startTime.valueOf(),
+        endTime: endTime.valueOf(),
+        id, seq, floor
+      });
       this.loading = true;
-      console.log(this.formfields);
-      setTimeout(() => {
+      const { data } = await this.$axios.post('/bookseat', handledata).finally(() => {
         this.loading = false;
-      }, 1000);
+      });
+      console.log(data);
     },
-    genColor() {
-      return ["rgb(255,0,0)", "rgb(68,170,230)", "rgb(51,224,51)"][
-        parseInt(Math.random() * 3)
-      ];
+    genColor(status) {
+      return status === 0 ? "rgb(51,224,51)" : (status === 1 ? "rgb(68,170,230)" : "rgb(255,0,0)");
     },
     changeArea(floor) {
       this.formfields.area = Object.keys(this.seatData[floor - 1])[0];
+    },
+    changeSeq(e) {
+      let name = e.target.nodeName.toLowerCase();
+      if (name === 'i') {
+        let seq = e.target.dataset.index;
+        this.formfields.seq = +seq;
+      }
     }
   },
 });
@@ -315,7 +400,6 @@ export default defineComponent({
             height: 14px;
             margin-left: 5px;
             border-radius: 7px;
-            background-color: red;
           }
         }
         .nickname {
