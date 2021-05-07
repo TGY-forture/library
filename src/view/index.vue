@@ -72,7 +72,10 @@ export default defineComponent({
   name: "Index",
   setup() {
     const store = useStore();
-    store.dispatch('getUserInfo');
+    store.dispatch('getUserInfo'); //获取用户信息
+    store.dispatch('getSeatInfo');//获取座位信息
+    store.dispatch('getBookRecord');//获取预约全部预约记录
+    store.dispatch('getUserRecord');//获取用户预约记录
   },
   data() {
     return {
