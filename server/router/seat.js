@@ -32,17 +32,4 @@ router.get('/seatinfo', async (ctx) => {
   }
 })
 
-router.get('/book', async (ctx) => {
-  const conn = createConn();
-  ctx.body = await new Promise((resolve, reject) => {
-    conn.query('select * from record', (error, result) => {
-      if (error) {
-        reject(-1);
-      }
-      conn.end();
-      resolve(result);
-    })
-  })
-})
-
 module.exports = router;
