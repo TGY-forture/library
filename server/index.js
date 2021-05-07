@@ -35,6 +35,4 @@ app.use(async (ctx, next) => {
 app.use(pageroute.routes()).use(log.routes()).use(verify.routes()).use(api.routes());
 app.use(seat.routes());
 
-https.createServer(options, app.callback()).listen(5000, '10.136.21.90', () => {
-  console.log('socket listening.....');
-});
+https.createServer(options, app.callback()).listen(5000, '10.136.21.90');
