@@ -1,5 +1,5 @@
 <template>
-  <div class="u-seat">
+  <div class="u-seat" ref="useat">
     <header>
       <a-radio-group v-model:value="select">
         <a-radio-button :value="true">今日选择</a-radio-button>
@@ -110,7 +110,7 @@
         </a-row>
         <a-row>
           <a-col :span="7">已预约时间:</a-col>
-          <a-col class="already">
+          <a-col class="already" @click="peekTime">
             <span>点此查看</span>
             <i class="custom-icon custom-icon-Magnifiercontrol"></i>
           </a-col>
@@ -127,20 +127,53 @@
         </a-button>
       </div>
     </div>
+    <a-modal
+      :visible="visible"
+      :forceRender="true"
+      :closable="false"
+      :footer="null"
+      :getContainer="() => $refs.useat"
+      title="已预约时间"
+      @cancel="visible = false"
+      wrapClassName="mymodal"
+    >
+      <a-row v-for="(item, date) in showTime" :key="date">
+        <a-col :span="7">
+          <a-tag>{{ date }}</a-tag>
+        </a-col>
+        <a-col :span="17">
+          <a-tag
+            v-for="(item, index) of item"
+            :key="index"
+            :color="item[2] === '1' ? 'success' : 'processing'"
+          >
+            <template #icon>
+              <clock-circle-outlined v-if="item[2] === '1'" />
+              <sync-outlined :spin="true" v-else />
+            </template>
+            {{ timeParser(item) }}
+          </a-tag>
+        </a-col>
+      </a-row>
+    </a-modal>
   </div>
 </template>
 
 <script>
 import { defineComponent, reactive, ref, watch } from "vue";
 import moment from "moment";
-import { notification } from "ant-design-vue";
-import { mapGetters } from 'vuex';
+import { notification, message } from "ant-design-vue";
+import { SyncOutlined, ClockCircleOutlined } from '@ant-design/icons-vue'
+import { mapGetters, mapState } from 'vuex';
 import { seatArea } from '@/assets/js/areaname.js';
 import { createSocket } from '@/assets/js/websocket.js'
 createSocket();
 
 export default defineComponent({
   name: "Select",
+  components: {
+    SyncOutlined, ClockCircleOutlined
+  },
   setup() {
     const col = {
       labelCol: {
@@ -224,10 +257,12 @@ export default defineComponent({
       seatArea,
       checked: false,
       loading: false,
+      visible: false,
     };
   },
   computed: {
     ...mapGetters(['seatData']),
+    ...mapState(['record']),
     areas() {
       let area = Object.keys(this.seatData[this.formfields.floor - 1]);
       if (area.length > 0) {
@@ -277,6 +312,13 @@ export default defineComponent({
         status: item.status === 0 ? '空闲中' : (item.status === 1 ? '有预约' : '使用中'),
         rawstatus: item.status
       };
+    },
+    showTime() {
+      if (this.selectedSeat.id === 'loading...') {
+        return {};
+      } else {
+        return this.record[this.selectedSeat.id];
+      }
     }
   },
   watch: {
@@ -293,6 +335,9 @@ export default defineComponent({
       if (endTime.valueOf() - startTime.valueOf() < 18e+5) { //间隔小于30min,返回
         return;
       }
+      /**
+       * 先检查当前用户可预约的数目是否大于3
+       */
       if (+seq > this.seqOptions) { //座位号越界调整
         this.formfields.seq = this.seqOptions + '';
         seq = this.seqOptions;
@@ -312,7 +357,25 @@ export default defineComponent({
       const { data } = await this.$axios.post('/bookseat', handledata).finally(() => {
         this.loading = false;
       });
-      console.log(data);
+      if (data === -1) {
+        message.error('预约出错');
+      } else if (data === 1) {
+        notification.success({
+          message: '预约通知',
+          description: '预约成功,可在预约中心查看',
+          duration: 3
+        })
+      } else {
+        message.error('时间区段不合法')
+      }
+    },
+    peekTime() {
+      this.visible = true;
+      //在这里已经获取到了时间
+      // console.log([...this.$store.state.record.filter(v => v != null)]);
+    },
+    timeParser([start, end]) {//草泥马,一个+号搞劳资半天
+      return moment((new Date(+start)).toISOString()).format('HH:mm') + '-' + moment((new Date(+end)).toISOString()).format('HH:mm');
     },
     genColor(status) {
       return status === 0 ? "rgb(51,224,51)" : (status === 1 ? "rgb(68,170,230)" : "rgb(255,0,0)");
@@ -434,6 +497,20 @@ export default defineComponent({
           font-size: 16px;
           margin: 5px;
         }
+      }
+    }
+  }
+  .mymodal .ant-modal-body {
+    max-height: 300px;
+    overflow-y: scroll;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    .ant-row .ant-col:nth-child(2) .ant-tag {
+      margin-bottom: 10px;
+      margin-right: 0;
+      &:nth-child(2n) {
+        margin-left: 2px;
       }
     }
   }
