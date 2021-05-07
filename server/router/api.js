@@ -157,9 +157,136 @@ router.post('/user', async (ctx) => {
 /**
  * 预定座位系列请求接口
  */
+
+//获取所有座位的预约时间
+router.get('/time', async (ctx) => {
+  let conn = createConn();
+  let ret = await new Promise((resolve, reject) => {
+    conn.query("select * from record where status='0' or status='1'", (error, result) => {
+      if (error) {
+        reject([])
+      }
+      resolve(result);
+    })
+  });
+  let res = new Array(4000).fill(null);//一共3988个座位,申请4000长度的数组
+  ret.forEach(({ id, start, end, date, status }) => {
+    if (!res[id]) {
+      res[id] = {};
+    }
+    if (!res[id][date]) {
+      res[id][date] = [[start, end, status]];
+    } else {
+      res[id][date].push([start, end, status]);
+    }
+  });
+  ctx.body = res;
+})
+
+//
+router.get('/userseat', async (ctx) => {
+  let user = ctx.jwt.user;
+  let conn = createConn();
+  let orders = await new Promise((resolve, reject) => {
+    conn.query('select * from record where user=?', user, (error, result) => {
+      if (error) {
+        reject([]);
+      }
+      resolve(result);
+    })
+  });
+  if (orders.length === 0) {
+    ctx.body = { pendingorder: [], completeorder: [] };
+  } else {
+    ctx.body = {
+      pendingorder: orders.filter((item) => item.status === '0' || item.status === '1'),
+      completeorder: orders.filter((item) => item.status !== '0' && item.status !== '1')
+    }
+  }
+})
+
+//获得指定座位已经被预约的时间
+router.post('/bookseat', async (ctx, next) => {
+  let { id, startTime, endTime, date } = ctx.request.body;
+  let conn = createConn();
+  let res = await new Promise((resolve, reject) => {
+    conn.query("select start,end,date from record where id=? and (status='0' or status='1')",
+      id,
+      (error, result) => {
+        if (error) {
+          reject(-1)
+        }
+        resolve(result);
+      }
+    )
+  });
+  if (res === -1) {
+    ctx.body = -1; //内部错误
+    return;
+  }
+  if (res.length === 0) {//不存在预约记录,前往预约
+    await next();
+  } else { //存在预约记录,检查是否交叉
+    let response = {};
+    for (let r of res) { //按日期对时间分类
+      if (response[r.date]) {
+        response[r.date].push([r.start, r.end]);
+      } else {
+        response[r.date] = [[r.start, r.end]]
+      }
+    }
+    if (!response[date]) { //如果这个日期不存在预约,则进行下一步
+      await next();
+    } else {
+      let isvalid = response[date].every((time) => {
+        if (endTime <= time[0] || time[1] <= startTime) {
+          return true;
+        } else {
+          return false;
+        }
+      })
+      if (isvalid) {
+        await next();
+      } else {
+        ctx.body = 0; //时间区段交叉
+      }
+    }
+  }
+})
+//新增预约记录
 router.post('/bookseat', async (ctx) => {
   let user = ctx.jwt.user;
-  ctx.body = ctx.request.body;
+  let body = ctx.request.body;
+  let conn = createConn();
+  ctx.body = await new Promise((resolve, reject) => {
+    conn.query('insert into record (user,floor,id,seq,date,area,start,end,status) values (?,?,?,?,?,?,?,?,?)',
+      [user, body.floor, body.id, body.seq, body.date, body.area, body.startTime, body.endTime, '1'],
+      (error) => {
+        if (error) {
+          reject(-1);
+        }
+        resolve();
+      }
+    )
+  }).then(() => {
+    return new Promise((resolve, reject) => {
+      //变更座位状态
+      conn.query(`update ${'floor' + body.floor} set status=? where id=?`,
+        ['1', body.id],
+        (error, result) => {
+          conn.end();
+          if (error) {
+            reject(-1);
+          }
+          if (result.affectedRows > 0) {
+            //预约成功,通知更新
+            resolve(1);
+          } else {
+            reject(-1);
+          }
+        })
+    })
+  }).catch(e => e)
 })
 
 module.exports = router;
