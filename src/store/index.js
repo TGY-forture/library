@@ -17,9 +17,8 @@ let store = createStore({
         phone: ''
       },
       seat: [],
-      record: new Array(4000).fill(0).map(() => {
-        return {}
-      })
+      record: [],
+      orders: []
     }
   },
   getters: {
@@ -33,6 +32,7 @@ let store = createStore({
         const { seq, id, status, user } = obj;
         areaitem[obj.area].push({ seq, id, status, user });
       });
+      // console.log(result);
       return result;
     }
   },
@@ -45,6 +45,9 @@ let store = createStore({
     },
     initBookRecord(state, data) {
       state.record = data;
+    },
+    initUserRecord(state, data) {
+      state.orders = data;
     }
   },
   actions: {
@@ -71,12 +74,12 @@ let store = createStore({
       }
     },
     async getBookRecord({ commit }) {
-      const { data } = await axios.get('/book');
-      if (data === -1) {
-        return -1;
-      } else {
-        commit('initBookRecord', data)
-      }
+      const { data } = await axios.get('/time');
+      commit('initBookRecord', data)
+    },
+    async getUserRecord({ commit }) {
+      let { data } = await axios.get('/userseat');
+      commit('initUserRecord', data);
     }
   },
   modules: []
