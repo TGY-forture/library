@@ -1,5 +1,5 @@
 const Router = require('@koa/router');
-const { createConn, creatPoolConn } = require('../util/mysql.js');
+const { creatPoolConn } = require('../util/mysql.js');
 const router = new Router();
 const pools = creatPoolConn();
 
