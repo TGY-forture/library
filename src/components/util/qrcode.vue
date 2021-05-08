@@ -10,7 +10,6 @@
       :forceRender="true"
       @cancel="hide"
     >
-      <p>{{ code }}</p>
       <canvas ref="canvas"></canvas>
     </a-modal>
   </div>
@@ -18,12 +17,14 @@
 
 <script>
 import { defineComponent, ref } from "vue";
+import { notification, message } from 'ant-design-vue';
 import jsQR from "jsqr";
 
 export default defineComponent({
   name: "Qrcode",
   props: {
     visible: { type: Boolean, require: true },
+    info: { type: Object, require: true }
   },
   emit: ["hideModal"],
   setup(props) {
@@ -37,7 +38,6 @@ export default defineComponent({
       tracks: undefined,
       video: null,
       frame: undefined,
-      code: "",
     };
   },
   watch: {
@@ -56,17 +56,14 @@ export default defineComponent({
     },
     gerCamera() {
       this.video = this.video ? this.video : document.createElement("video");
-      navigator.mediaDevices
-        .getUserMedia({ video: { facingMode: "environment" } })
-        .then((stream) => {
-          this.tracks = stream.getTracks();
-          this.video.srcObject = stream;
-          this.video.play();
-          this.drawPicture();
-        })
-        .catch((e) => alert(e));
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then((stream) => {
+        this.tracks = stream.getTracks();
+        this.video.srcObject = stream;
+        this.video.play();
+        this.drawPicture();
+      }).catch((e) => alert(e));
     },
-    drawPicture() {
+    async drawPicture() {
       if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
         let height = this.video.videoHeight;
         let width = this.video.videoWidth;
@@ -79,12 +76,28 @@ export default defineComponent({
           inversionAttempts: "dontInvert",
         });
         if (code) {
-          this.code = code.data;
-          setTimeout(() => {
+          let id = JSON.parse(code.data).id;
+          if (id !== this.info.id) {
             this.hide();
-          }, 2000);
-        } else {
-          this.code = "no data";
+            message.warning('请选择正确的座位');
+            return;
+          }
+          let { data } = await this.$axios.post('/signin', this.info);
+          if (data === 1) {
+            notification.success({
+              message: '通知',
+              description: '操作成功',
+              duration: 3
+            });
+          } else {
+            notification.error({
+              message: '通知',
+              description: '操作失败',
+              duration: 3
+            });
+          }
+          this.hide();
+          return; //结束本次调用,避免关闭后仍运行 requestAnimationFrame
         }
       }
       this.frame = requestAnimationFrame(this.drawPicture);
