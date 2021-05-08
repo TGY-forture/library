@@ -64,6 +64,7 @@ router.use(async (ctx, next) => {
   ctx.jwt = jwt.verify(ctx.request.headers.authorization.slice(7), secret, { algorithm: 'HS256' });
   await next();
 })
+
 //获取用户基本信息
 router.get('/user', async (ctx) => {
   let studycode = ctx.jwt.user;
@@ -162,7 +163,7 @@ router.post('/user', async (ctx) => {
 router.get('/time', async (ctx) => {
   let conn = createConn();
   let ret = await new Promise((resolve, reject) => {
-    conn.query("select * from record where status='0' or status='1'", (error, result) => {
+    conn.query("select * from record where status='0' or status='1' or status='2'", (error, result) => {
       if (error) {
         reject([])
       }
@@ -183,7 +184,7 @@ router.get('/time', async (ctx) => {
   ctx.body = res;
 })
 
-//
+//获取某个用户的预约记录
 router.get('/userseat', async (ctx) => {
   let user = ctx.jwt.user;
   let conn = createConn();
@@ -199,8 +200,8 @@ router.get('/userseat', async (ctx) => {
     ctx.body = { pendingorder: [], completeorder: [] };
   } else {
     ctx.body = {
-      pendingorder: orders.filter((item) => item.status === '0' || item.status === '1'),
-      completeorder: orders.filter((item) => item.status !== '0' && item.status !== '1')
+      pendingorder: orders.filter((item) => item.status === '1' || item.status === '2'),
+      completeorder: orders.filter((item) => item.status !== '1' && item.status !== '2')
     }
   }
 })
@@ -210,7 +211,7 @@ router.post('/bookseat', async (ctx, next) => {
   let { id, startTime, endTime, date } = ctx.request.body;
   let conn = createConn();
   let res = await new Promise((resolve, reject) => {
-    conn.query("select start,end,date from record where id=? and (status='0' or status='1')",
+    conn.query("select start,end,date from record where id=? and (status='1' or status='2')",
       id,
       (error, result) => {
         if (error) {
@@ -287,6 +288,48 @@ router.post('/bookseat', async (ctx) => {
         })
     })
   }).catch(e => e)
+})
+
+//用户进行扫码签到,签退
+router.post('/signin', async (ctx) => {
+  let user = ctx.jwt.user;
+  let info = ctx.request.body;
+  //检查是否是当日，只有当日才能签到
+  if (new Date().getDate() !== new Date(+info.date).getDate()) {
+    ctx.body = -1;
+    return;
+  }
+  //
+  let status = info.isin ? '2' : '3';
+  let setuser = info.isin ? info.user : null;
+  let seatstatus = info.isin ? '2' : '0';
+  let conn = createConn();
+  ctx.body = await new Promise((resolve, reject) => {
+    conn.query(`update record set status=? where id=? and user=? and date=? and start=?;
+    update floor? set status=?,user=? where id=?`,
+      [status, info.id, user, info.date, info.start, info.floor, seatstatus, setuser, info.id],
+      (error, results) => {
+        if (error) {
+          reject(-1)
+        }
+        if (results[0].affectedRows === 1 && results[1].affectedRows === 1) {
+          resolve(1);
+        } else {
+          reject(-1);
+        }
+      }
+    )
+  })
+})
+
+//用户取消预约
+router.post('/cancel', async (ctx) => {
+  let user = ctx.jwt.user;
+  let info = ctx.request.body;
+  let conn = createConn();
+  ctx.body = await new Promise((resolve, reject) => {
+
+  })
 })
 
 module.exports = router;
