@@ -92,7 +92,7 @@
           <p class="dot"></p>
         </a-tooltip>
         <span>座位ID:{{ selectedSeat.id }}</span>
-        <i class="custom-icon custom-icon-qrcode"></i>
+        <i class="custom-icon custom-icon-qrcode" @click="createQrcode"></i>
       </div>
       <div class="seat-body">
         <a-row>
@@ -156,18 +156,31 @@
         </a-col>
       </a-row>
     </a-modal>
+    <a-drawer
+      title="座位二维码"
+      placement="top"
+      :closable="false"
+      :height="'auto'"
+      v-model:visible="codeshow"
+      :getContainer="() => $refs.useat"
+      @close="codeshow = false"
+    >
+      <canvas id="qrinfo" ref="qrseat"></canvas>
+      <a-button type="primary" @click="downloadImg">点击下载</a-button>
+    </a-drawer>
   </div>
 </template>
 
 <script>
 import { defineComponent, reactive, ref, watch } from "vue";
 import moment from "moment";
-import { notification, message } from "ant-design-vue";
+import { notification, message, Modal } from "ant-design-vue";
 import { SyncOutlined, ClockCircleOutlined } from '@ant-design/icons-vue'
 import { mapGetters, mapState } from 'vuex';
 import { seatArea } from '@/assets/js/areaname.js';
 import { createSocket } from '@/assets/js/websocket.js'
 createSocket();
+import qrcode from 'qrcode';
 
 export default defineComponent({
   name: "Select",
@@ -258,11 +271,12 @@ export default defineComponent({
       checked: false,
       loading: false,
       visible: false,
+      codeshow: false
     };
   },
   computed: {
     ...mapGetters(['seatData']),
-    ...mapState(['record']),
+    ...mapState(['record', 'orders']),
     areas() {
       let area = Object.keys(this.seatData[this.formfields.floor - 1]);
       if (area.length > 0) {
@@ -335,9 +349,15 @@ export default defineComponent({
       if (endTime.valueOf() - startTime.valueOf() < 18e+5) { //间隔小于30min,返回
         return;
       }
-      /**
-       * 先检查当前用户可预约的数目是否大于3
-       */
+      //检查当前用户预约的数目
+      if (this.orders.pendingorder.length > 3) {
+        Modal.warning({
+          title: '提示',
+          content: '同时最多预约3次,请先完成其他预约',
+          okText: '我知道了'
+        });
+        return;
+      }
       if (+seq > this.seqOptions) { //座位号越界调整
         this.formfields.seq = this.seqOptions + '';
         seq = this.seqOptions;
@@ -371,8 +391,6 @@ export default defineComponent({
     },
     peekTime() {
       this.visible = true;
-      //在这里已经获取到了时间
-      // console.log([...this.$store.state.record.filter(v => v != null)]);
     },
     timeParser([start, end]) {//草泥马,一个+号搞劳资半天
       return moment((new Date(+start)).toISOString()).format('HH:mm') + '-' + moment((new Date(+end)).toISOString()).format('HH:mm');
@@ -389,6 +407,25 @@ export default defineComponent({
         let seq = e.target.dataset.index;
         this.formfields.seq = +seq;
       }
+    },
+    createQrcode() {
+      setTimeout(() => {
+        qrcode.toCanvas(this.$refs.qrseat, JSON.stringify({
+          id: this.selectedSeat.id,
+          seq: +this.formfields.seq,
+          area: this.checked ? this.formfields.activeArea : this.formfields.area,
+          floor: this.formfields.floor
+        }))
+      }, 0);
+      this.codeshow = true;
+    },
+    downloadImg() {
+      let a = document.createElement('a');
+      let dataurl = this.$refs.qrseat.toDataURL();
+      a.download = 'seat.png';
+      a.href = dataurl;
+      a.click();
+      this.codeshow = false;
     }
   },
 });
@@ -512,6 +549,14 @@ export default defineComponent({
       &:nth-child(2n) {
         margin-left: 2px;
       }
+    }
+  }
+  .ant-drawer .ant-drawer-content {
+    border-radius: 0 0 10px 10px;
+    .ant-drawer-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
   }
 }
