@@ -1,5 +1,5 @@
 <template>
-  <div class="u-history">
+  <div class="u-history" v-if="showOrder.length">
     <ul class="history-lists">
       <li
         v-for="(item, index) in showOrder"
@@ -37,6 +37,9 @@
       size="small"
     ></a-pagination>
   </div>
+  <template v-else>
+    <a-empty><template #description>你还没有预约过噢!</template></a-empty>
+  </template>
 </template>
 
 <script>
@@ -55,7 +58,7 @@ export default defineComponent({
   computed: {
     ...mapState(['orders']),
     showOrder() {
-      return this.orders.pendingorder.slice((this.page - 1) * 10, (this.page - 1) * 10 + 10);
+      return this.orders.completeorder.slice((this.page - 1) * 10, (this.page - 1) * 10 + 10);
     }
   },
   methods: {
@@ -71,10 +74,10 @@ export default defineComponent({
     background(status) {
       let color;
       switch (status) {
-        case '3': color = 'rgb(69, 182, 211)'; break; //已签退
+        case '3': color = '#40a9ff'; break; //已签退
         case '4': color = '#949191'; break;//已取消
-        case '5': color = 'f36b6b'; break;//违约
-        default: color = 'rgb(69, 182, 211)'; break;
+        case '5': color = '#ff6b6b'; break;//违约
+        default: color = '#40a9ff'; break;
       }
       return color;
     }
