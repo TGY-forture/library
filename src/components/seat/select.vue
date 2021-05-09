@@ -84,7 +84,7 @@
           <p class="dot"></p>
         </a-tooltip>
         <a-tooltip trigger="click">
-          <template #title>已预约</template>
+          <template #title>有预约</template>
           <p class="dot"></p>
         </a-tooltip>
         <a-tooltip trigger="click">
@@ -106,12 +106,14 @@
         </a-row>
         <a-row>
           <a-col :span="7">使用者昵称:</a-col>
-          <a-col class="nickname">{{ selectedSeat.user }}</a-col>
+          <a-col class="nickname" @click="findUser">{{
+            selectedSeat.user
+          }}</a-col>
         </a-row>
         <a-row>
           <a-col :span="7">已预约时间:</a-col>
-          <a-col class="already" @click="peekTime">
-            <span>点此查看</span>
+          <a-col class="already">
+            <span @click="peekTime">点此查看</span>
             <i class="custom-icon custom-icon-Magnifiercontrol"></i>
           </a-col>
         </a-row>
@@ -205,7 +207,7 @@ export default defineComponent({
       endTime: moment(moment(), "HH:mm"),
       seq: '1',
     });
-    let select = ref(false);
+    let select = ref(true);
     watch(select, () => {
       formfields.startTime = moment(moment(), "HH:mm");
       formfields.endTime = moment(moment(), "HH:mm");
@@ -350,7 +352,7 @@ export default defineComponent({
         return;
       }
       //检查当前用户预约的数目
-      if (this.orders.pendingorder.length > 3) {
+      if (this.orders.pendingorder.length >= 3) {
         Modal.warning({
           title: '提示',
           content: '同时最多预约3次,请先完成其他预约',
@@ -426,6 +428,9 @@ export default defineComponent({
       a.href = dataurl;
       a.click();
       this.codeshow = false;
+    },
+    findUser() {
+      console.log('------------');
     }
   },
 });
