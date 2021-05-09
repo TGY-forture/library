@@ -1,6 +1,6 @@
 <template>
   <div class="u-pending">
-    <ul>
+    <ul v-if="orders.pendingorder.length">
       <li v-for="(item, index) in orders.pendingorder" :key="index">
         <a-row>
           <a-col :span="span">状态:</a-col>
@@ -34,7 +34,10 @@
           <a-button
             type="primary"
             @click="signIn(item)"
-            :disabled="item.status === '2'"
+            :disabled="
+              item.status === '2' ||
+              item.date !== new Date().toISOString().slice(0, 10)
+            "
             >签到</a-button
           >
           <a-button
@@ -52,6 +55,11 @@
         </a-row>
       </li>
     </ul>
+    <template v-else>
+      <a-empty>
+        <template #description>暂无预约</template>
+      </a-empty>
+    </template>
     <Scan :visible="visible" @hideModal="visible = false" :info="curorder" />
   </div>
 </template>
@@ -62,7 +70,7 @@ import Scan from "../util/qrcode.vue";
 import { mapState } from 'vuex';
 import moment from 'moment';
 import { seatArea } from '@/assets/js/areaname.js';
-import { Modal } from 'ant-design-vue';
+import { Modal, message } from 'ant-design-vue';
 
 export default defineComponent({
   name: "pending",
@@ -83,11 +91,19 @@ export default defineComponent({
     genTime(time) {
       return moment(new Date(+time).toISOString()).format('HH:mm')
     },
-    signIn(item) {
+    signIn(item) {//开始时间后五分内可以签到
+      let now = moment().format('HH:mm').split(':').map(Number);
+      let expect = this.genTime(item.start).split(':').map(Number);
+      now = now[0] * 60 + now[1];
+      expect = expect[0] * 60 + expect[1];
+      if (now < expect || now > expect + 5) {
+        message.warning('现在不能签到');
+        return;
+      }
       this.curorder = Object.assign(item, { isin: true }); //isin代表是否签到操作
       this.visible = true;
     },
-    signOut(item) {
+    signOut(item) {//签到之后可以随时签退,超出使用时间未签退时可以自动签退
       this.curorder = Object.assign(item, { isin: false });
       this.visible = true;
     },
@@ -96,8 +112,13 @@ export default defineComponent({
     },
     cancel(item) {
       Modal.confirm({
-        content: '你确定要取消吗?'
+        content: '你确定要取消吗?',
+        onOk: () => this.ensure(item)
       })
+    },
+    async ensure(item) {
+      const { data } = await this.$axios.post('/cancel', item);
+      console.log(data);
     }
   }
 });
