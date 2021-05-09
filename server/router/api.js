@@ -72,7 +72,7 @@ router.get('/user', async (ctx) => {
   let conn = createConn();
   ctx.body = await new Promise((resolve, reject) => {
     conn.query(sql, studycode, (error, result) => {
-      if (error) {
+      if (error) { //发生错误会终止连接
         reject(-1);
       }
       resolve(result[0])
@@ -239,8 +239,13 @@ router.post('/bookseat', async (ctx, next) => {
     if (!response[date]) { //如果这个日期不存在预约,则进行下一步
       await next();
     } else {
-      let isvalid = response[date].every((time) => {
-        if (endTime <= time[0] || time[1] <= startTime) {
+      const parse = (ms) => {
+        let t = new Date(+ms);
+        return t.getHours() * 60 + t.getMinutes();
+      }
+      //time元素是字符串
+      let isvalid = response[date].every((time) => {//判断区间合法性
+        if (parse(endTime) <= parse(time[0]) || parse(time[1]) <= parse(startTime)) {
           return true;
         } else {
           return false;
@@ -290,35 +295,121 @@ router.post('/bookseat', async (ctx) => {
   }).catch(e => e)
 })
 
+/**
+ * 查找record表中id为seatid的座位的预约信息
+ * @param {*} seatid 
+ * @returns -1:查找出错 0:空闲 1:有预约 2:有人正在使用
+ */
+async function isHavaAppoint(seatid) {
+  let conn = createConn();
+  return await new Promise((resolve, reject) => {//检查状态时与用户无关,只与座位id有关
+    conn.query("select status from record where (status='1' or status='2') and id=?", seatid, (error, result) => {
+      if (error) {
+        console.log('first error');
+        reject(-1);
+        return;
+      }
+      conn.end();
+      if (result.length > 0) {//状态变更后仍存在预约
+        console.log('有人');
+        for (let it of result) {
+          if (it.status === '2') {
+            console.log('有000人');
+            resolve(2);
+            return;
+          }
+        }
+        console.log('有,,,,,人');
+        resolve(1);
+      } else {//状态变更后不存在预约
+        console.log('有zzzzz人');
+        resolve(0);
+      }
+    })
+  })
+}
+
 //用户进行扫码签到,签退
 router.post('/signin', async (ctx) => {
   let user = ctx.jwt.user;
   let info = ctx.request.body;
-  //检查是否是当日，只有当日才能签到
-  if (new Date().getDate() !== new Date(+info.date).getDate()) {
-    ctx.body = -1;
-    return;
-  }
-  //
-  let status = info.isin ? '2' : '3';
-  let setuser = info.isin ? info.user : null;
-  let seatstatus = info.isin ? '2' : '0';
+  let status = info.isin ? '2' : '3';//2代表签到，3代表签退 只能由状态1变更而来
+  let prestatus = info.isin ? '1' : '2';
   let conn = createConn();
   ctx.body = await new Promise((resolve, reject) => {
-    conn.query(`update record set status=? where id=? and user=? and date=? and start=?;
-    update floor? set status=?,user=? where id=?`,
-      [status, info.id, user, info.date, info.start, info.floor, seatstatus, setuser, info.id],
-      (error, results) => {
+    //签到和签退都应改变预约历史记录的状态
+    conn.query('update record set status=? where id=? and user=? and date=? and start=? and status=?',
+      [status, info.id, user, info.date, info.start, prestatus],
+      (error, result) => {
         if (error) {
-          reject(-1)
+          console.log('inse');
+          reject(-1);
+          return;
         }
-        if (results[0].affectedRows === 1 && results[1].affectedRows === 1) {
-          resolve(1);
+        if (result.affectedRows === 1) {
+          resolve(); //更新成功
         } else {
+          console.log(result);
+          console.log('update fail');
           reject(-1);
         }
       }
     )
+  }).then(() => {
+    return new Promise((resolve, reject) => {
+      if (info.isin) {//如果是签到,则直接更新楼层座位的当前状态
+        conn.query("update floor? set status='2',user=? where id=?", [info.floor, info.user, info.id],
+          (error, result) => {
+            if (error) {
+              console.log('e1', error);
+              reject(-1);
+              return;
+            }
+            if (result.affectedRows === 1) {
+              resolve(-2);//这里的-1不代表失败,代表是签到成功不需要去检查预约记录
+            } else {
+              console.log('e2', 'no el');
+              reject(-1);
+            }
+          })
+      } else {//否则是签退,需要检查预约记录座位状态,从而更新楼层座位状态
+        console.log('--------------签退时查找-----------------');
+        resolve(isHavaAppoint(info.id));
+      }
+    })
+  }).then((r) => {
+    console.log('----------查找结束--------------', r);
+    return new Promise((resolve, reject) => {
+      if (r === -2) {//签到成功
+        resolve(1);
+        conn.end();
+        return;
+      }
+      if (r === -1) { reject(-1); console.log('e3', 'select err'); return; }//查询失败
+      /**
+       * 如果是签退的话，说明当前用户正在使用,在前一步状态更新中状态已经变成3了,
+       * 所以这里不会出现状态码为2的情况,可以直接判断0与1两种情况
+       */
+      let nsta = r === 0 ? '0' : '1';//根据是否存在预约设置座位状态
+      conn.query("update floor? set status=?,user=? where id=?", [info.floor, nsta, null, info.id],
+        (error, result) => {
+          if (error) {
+            console.log('e4', error);
+            reject(-1);
+            return;
+          }
+          conn.end();
+          if (result.affectedRows === 1) {
+            console.log('+++++++++++++++++++++++++++++++');
+            resolve(1); //更新楼层座位状态成功
+          } else { //失败
+            console.log('e5', 'fail');
+            reject(-1);
+          }
+        })
+    })
+  }).catch((e) => {
+    return e;
   })
 })
 
@@ -328,8 +419,46 @@ router.post('/cancel', async (ctx) => {
   let info = ctx.request.body;
   let conn = createConn();
   ctx.body = await new Promise((resolve, reject) => {
-
-  })
+    conn.query("update record set status='4' where user=? and id=? and date=? and start=? and status='1'",
+      [user, info.id, info.date, info.start],
+      (error, result) => {
+        if (error) {
+          reject(-1);
+          return;
+        }
+        if (result.affectedRows === 1) {
+          resolve();
+        } else {
+          reject(-1);
+        }
+      })
+  }).then(() => {
+    return isHavaAppoint(info.id);
+  }).then(r => {
+    if (r === -1) {
+      conn.end();
+      return -1;
+    }
+    /**
+     * 用户取消预约时由步骤决定了用户处于未签到的状态,此时的座位状态必然为 0 或 1 或 2
+     * 根据上一个promise的个返回值决定更新座位状态
+     */
+    let newstatus = r === 0 ? '0' : (r === 1 ? '1' : '2');//根据是否存在预约设置座位状态
+    return new Promise((resolve, reject) => {
+      conn.query("update floor? set status=? where id=?", [info.floor, newstatus, info.id], (error, result) => {
+        if (error) {
+          reject(-1);
+          return;
+        }
+        conn.end();
+        if (result.affectedRows === 1) {
+          resolve(1);
+        } else {
+          reject(-1);
+        }
+      })
+    })
+  }).catch(e => e)
 })
 
 module.exports = router;
