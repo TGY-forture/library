@@ -18,7 +18,7 @@ let store = createStore({
       },
       seat: [],
       record: [],
-      orders: []
+      orders: { pendingorder: [], completeorder: [] }
     }
   },
   getters: {
