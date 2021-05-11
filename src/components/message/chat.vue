@@ -1,22 +1,29 @@
 <template>
   <div class="u-chat">
     <nav class="chat-nav">
-      <i class="custom-icon custom-icon-Larrow"></i>
+      <i class="custom-icon custom-icon-Larrow" @click="$router.back()"></i>
       <div>
-        <p>昵称黄寺大街空心菜菜时间节点</p>
+        <p>
+          {{ !otherusers[touser] ? "loading" : otherusers[touser].nickname }}
+        </p>
         <span class="dot"></span>
         <span>在线</span>
       </div>
     </nav>
     <ul class="mess-lists">
       <li
-        v-for="i in 8"
-        :key="i"
+        v-for="(mes, index) of chatHistory"
+        :key="index"
         class="common"
-        :class="i % 2 === 0 ? 'mess-to' : 'mess-from'"
+        :class="mes.send === user.student ? 'mess-send' : 'mess-recv'"
       >
-        <img src="../../assets/img/1232381748.jpeg" alt="head" />
-        <div class="content">wo就抗衰老的</div>
+        <img
+          :src="
+            mes.send === user.student ? user.avatar : otherusers[touser].avatar
+          "
+          alt="head"
+        />
+        <div class="content">{{ mes.mess }}</div>
       </li>
     </ul>
     <footer class="send">
@@ -24,17 +31,77 @@
         placeholder="输入内容 最多两百字"
         :auto-size="{ minRows: 1, maxRows: 4 }"
         :maxLength="200"
+        v-model:value="mess"
       />
-      <a-button type="primary" shape="round">发送</a-button>
+      <a-button type="primary" shape="round" @click="send">发送</a-button>
     </footer>
   </div>
 </template>
 
 <script>
 import { defineComponent } from "vue";
+import { mapGetters, mapState } from 'vuex';
+import { message } from 'ant-design-vue';
 
 export default defineComponent({
   name: "Chat",
+  data() {
+    return {
+      touser: null,
+      mess: ''
+    }
+  },
+  computed: {
+    ...mapState(['otherusers', 'user', 'socket']),
+    ...mapGetters(['pureMess']),
+    chatHistory() {
+      if (!this.touser || !this.otherusers[this.touser] || !this.pureMess[this.touser]) return [];
+      return this.pureMess[this.touser]; //可能是空数组
+    }
+  },
+  created() {
+    this.touser = this.$route.params.user;
+  },
+  mounted() {
+    this.scroll();
+    this.socket.on('recvmessage', (newmess) => {
+      message.info('客户端收到了消息');
+      this.$store.commit('updateMess', { info: newmess, type: 'receive' });
+      this.scroll();
+    })
+  },
+  beforeRouteEnter(to, from, next) {
+    if (!to.params.user) {
+      next('/seat');
+      return;
+    }
+    next();
+  },
+  methods: {
+    send() {
+      if (this.mess === '') return;
+      let trans = {
+        send: this.user.student,
+        recv: this.touser,
+        time: Date.now(),
+        dis: '1',
+        mess: this.mess
+      }
+      this.mess = '';
+      this.socket.emit('sendmessage', this.touser, trans)
+      this.$store.commit('updateMess', { info: trans, type: 'send' });
+      this.scroll();
+    },
+    scroll() {
+      this.$nextTick(() => {
+        let lists = document.getElementsByClassName('common');
+        if (lists.length > 0) {
+          let last = lists[lists.length - 1];
+          last.scrollIntoView();
+        }
+      })
+    }
+  }
 });
 </script>
  
@@ -98,6 +165,7 @@ export default defineComponent({
       .content {
         max-width: calc(100% - 60px); //30
         line-height: 1.4em;
+        word-break: break-all;
         padding: 8px;
         background-color: #12b7f5;
         position: relative;
@@ -113,7 +181,7 @@ export default defineComponent({
         }
       }
     }
-    .mess-from {
+    .mess-recv {
       justify-content: flex-start;
       .content {
         margin-left: 10px;
@@ -123,7 +191,7 @@ export default defineComponent({
         }
       }
     }
-    .mess-to {
+    .mess-send {
       justify-content: flex-end;
       .content {
         order: 0;
