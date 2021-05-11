@@ -2,42 +2,99 @@
   <div class="u-search">
     <ul class="user">
       <li>
-        <img src="../../assets/img/avatar.jpeg" alt="avatar" />
+        <img :src="showuser.avatar" alt="avatar" />
         <div>
-          <p>nickname</p>
-          <i class="custom-icon custom-icon-man"></i>
+          <p>{{ showuser.nickname }}</p>
+          <i
+            class="custom-icon"
+            :class="
+              showuser.gender === 'man'
+                ? 'custom-icon-man'
+                : 'custom-icon-woman'
+            "
+          ></i>
         </div>
       </li>
       <li>
         <a-tooltip>
-          <template v-slot:title>姓名</template>
-          <span>姓名</span>
-        </a-tooltip>
-        <a-tooltip>
-          <template v-slot:title>姓名</template>
-          <span>年龄</span>
-        </a-tooltip>
-        <a-tooltip>
-          <template v-slot:title>姓名</template>
+          <template v-slot:title>{{ showuser.faculty }}</template>
           <span>学院</span>
         </a-tooltip>
         <a-tooltip>
-          <template v-slot:title>姓名</template>
-          <span>联系方式</span>
+          <template v-slot:title>{{ showuser.phone }}</template>
+          <span>电话</span>
+        </a-tooltip>
+        <a-tooltip>
+          <template v-slot:title>{{ showuser.email }}</template>
+          <span>邮箱</span>
+        </a-tooltip>
+        <a-tooltip>
+          <template v-slot:title>{{
+            showuser.gender === "man" ? "男" : "女"
+          }}</template>
+          <span>性别</span>
         </a-tooltip>
       </li>
     </ul>
     <div class="sendto">
-      <a-button type="primary" size="large" shape="round">发送消息</a-button>
+      <a-button
+        type="primary"
+        size="large"
+        shape="round"
+        :loading="loading"
+        @click="sendPrepare"
+        >发送消息</a-button
+      >
     </div>
   </div>
 </template>
 
 <script>
 import { defineComponent } from "vue";
+import { mapState, mapGetters } from 'vuex';
+import { message } from 'ant-design-vue';
 
 export default defineComponent({
   name: "Search",
+  data() {
+    return {
+      searchuser: '',
+      loading: false
+    }
+  },
+  computed: {
+    ...mapState(['otherusers', 'message', 'user']),
+    ...mapGetters(['pureMess']),
+    showuser() {
+      return this.otherusers[this.searchuser];
+    }
+  },
+  watch: {
+    '$route.params': function ({ user }) {
+      if (!user) return;//当离开此页面时不做任何事
+      this.searchuser = user;
+    }
+  },
+  created() {
+    this.searchuser = this.$route.params.user;
+  },
+  methods: {
+    async sendPrepare() {
+      //通过socket发送消息
+      //只要进入聊天页面,就让这个聊天记录显示在消息页,不论是否有信息
+      this.loading = true;
+      const { data } = await this.$axios.post('/updatenew', { touser: this.searchuser }).finally(() => this.loading = false);
+      if (data === -1) {
+        message.error('出错了');
+        return;
+      } else if (data === 0) {
+        // this.$store.commit('addEmptyMess', { user: this.searchuser, dis: false });
+      } else {//有对话时才在首页消息页显示
+        // this.$store.commit('addEmptyMess', { user: this.searchuser, dis: true });
+      }
+      this.$router.push({ name: 'chat', params: { user: this.searchuser } });
+    }
+  }
 });
 </script>
 
@@ -69,6 +126,7 @@ export default defineComponent({
         width: 40px;
         height: 40px;
         border-radius: 50%;
+        object-fit: cover;
       }
       div {
         margin-left: 10px;
