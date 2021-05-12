@@ -180,8 +180,6 @@ import { notification, message, Modal } from "ant-design-vue";
 import { SyncOutlined, ClockCircleOutlined } from '@ant-design/icons-vue'
 import { mapGetters, mapState } from 'vuex';
 import { seatArea } from '@/assets/js/areaname.js';
-import { createSocket } from '@/assets/js/websocket.js'
-createSocket();
 import qrcode from 'qrcode';
 
 export default defineComponent({
