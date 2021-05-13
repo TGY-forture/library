@@ -1,44 +1,55 @@
 <template>
   <div class="u-message">
-    <a-empty v-if="empty">
+    <a-empty v-if="!seenMess.length">
       <template #description>
-        <span @click="show">暂无消息</span>
+        <span
+          @click="
+            $router.push({ name: 'chat', params: { user: '172210303316' } })
+          "
+          >暂无消息</span
+        >
       </template>
     </a-empty>
     <ul class="mess" v-else>
-      <li v-for="i in 2" :key="i">
-        <img src="../../assets/img/begin.png" alt="logo" @click="show" />
-        <div @click="toChat">
-          <p>爱吃蘑菇的小男孩127胡风很大把v8哈哈</p>
-          <p>今天你拉屎了吗?</p>
+      <li v-for="(item, index) of seenMess" :key="index">
+        <img :src="item.user.avatar" alt="logo" />
+        <div @click="toChat(item.user.student)">
+          <p>{{ item.user.nickname }}</p>
+          <p>{{ item.message.mess }}</p>
         </div>
-        <i class="custom-icon custom-icon-garbage"></i>
+        <i class="custom-icon custom-icon-garbage" @click="hideMess"></i>
       </li>
     </ul>
   </div>
 </template>
 
 <script>
-import { defineComponent, ref } from "vue";
+import { defineComponent } from "vue";
 import { useRouter } from "vue-router";
+import { mapGetters } from 'vuex';
 
 export default defineComponent({
   name: "Message",
   setup() {
-    let empty = ref(false);
-    const show = () => {
-      empty.value = !empty.value;
-    };
     let router = useRouter();
-    const toChat = () => {
-      router.push("/chat");
+    const toChat = (user) => {
+      router.push({ name: 'chat', params: { user } });
     };
     return {
-      empty,
-      show,
       toChat,
     };
   },
+  computed: {
+    ...mapGetters(['showMess']),
+    seenMess() {
+      return this.showMess.filter(v => v.dis === '1');
+    }
+  },
+  methods: {
+    hideMess() {
+      console.log('-------------');
+    },
+  }
 });
 </script>
 
