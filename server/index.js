@@ -1,4 +1,5 @@
 require('./util/socket.js');
+require('./util/timeout.js');
 const https = require('https');
 const fs = require('fs');
 const Koa = require('koa');
@@ -8,8 +9,8 @@ const koaBody = require('koa-body');
 const log = require('./router/log.js');
 const pageroute = require('./router/pageroute.js');
 const verify = require('./router/verify.js');
-const api = require('./router/api.js');
-const seat = require('./router/seat.js');
+const api = require('./router/api.js').router;
+const seat = require('./router/seat.js').router;
 
 let options = {
   key: fs.readFileSync('../public/san_domain_com.key'),
